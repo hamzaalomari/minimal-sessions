@@ -62,11 +62,13 @@ Mirrors the handoff structure; each item below is one React component or one fil
 | `<Turn>` | `app/session.jsx` | Role badge + name + body (indented). |
 | `<Block>` | `app/session.jsx` | Dispatches to `<P>`, `<Heading>`, `<List>`, `<CodeBlock>`, `<ToolLine>`, `<ToolWindow>`. |
 | `<CodeBlock>` | `app/session.jsx` | Header (lang + copy) + highlighted body. |
-| `<ToolWindow>` | `app/session.jsx` | Expandable: read (code), edit (diff), run (terminal output), write, search. |
+| `<ToolWindow>` | `app/session.jsx` | Expandable: read (code), edit (diff), write, search. (No `run` — see `spec.md` FR-M4.) |
 | `<DiffView>` | `app/session.jsx` | +/− gutter lines. |
 | `<EmptyState>` | `app/session.jsx` | Centered card with mark, model, path, suggestion chips. Plus a "No session open" variant. |
 | `<Composer>` | `app/session.jsx` | Auto-grow textarea + footer row (attach, model chip, hint, send). |
-| `<NewSessionPanel>` | `app/newsession.jsx` | Slide-in panel: name, folder picker, model cards, footer. |
+| `<NewSessionPanel>` | `app/newsession.jsx` | Slide-in panel: name, folder picker, model list, system-prompt field, footer. |
+| `<ModelPicker>` | new in v1 | Grouped list of all available Claude models (Opus/Sonnet/Haiku families). Collapsed default shows the recommended model per family; "Show all models" expands the full list. |
+| `<SystemPromptField>` | new in v1 | Collapsible `<details>` block on the new-session panel and the "Edit instructions" dialog. Textarea with the session's system prompt; placeholder is the default coding-assistant prompt. |
 | `<SettingsPopover>` | `app/newsession.jsx` | Theme + density segmented controls. |
 | `<ContextMenu>` | `app/newsession.jsx` | Rename / Close tab / Delete on session items. |
 | `<Icon>` | `app/icons.jsx` | Inline SVG dispatcher (24×24, 1.8px stroke, `currentColor`). |
@@ -154,16 +156,20 @@ Derived for both themes:
 
 ```ts
 type SessionId = string;
+/** A specific model the API exposes, e.g. 'claude-opus-4-7'. */
+type ModelId = string;
+type ModelFamily = 'opus' | 'sonnet' | 'haiku';
+
 type Block =
   | { type: 'p'; text: string }
   | { type: 'h'; text: string }
   | { type: 'ul'; items: string[] }
   | { type: 'code'; lang: string; code: string }
   | { type: 'tool'; label: string; path: string; tag?: string }
-  | { type: 'win'; kind: 'read' | 'edit' | 'run' | 'write' | 'search';
+  | { type: 'win'; kind: 'read' | 'edit' | 'write' | 'search';
       path: string; tag?: string; summary?: string;
-      lang?: string; code?: string; diff?: string; output?: string;
-      defaultOpen?: boolean };
+      lang?: string; code?: string; diff?: string; defaultOpen?: boolean }
+  | { type: 'error'; message: string };
 
 type Turn = { id: string; role: 'user' | 'assistant'; blocks: Block[]; modelShort?: string };
 
@@ -171,7 +177,10 @@ type Session = {
   id: SessionId;
   name: string;
   path: string;
-  model: 'opus' | 'sonnet' | 'haiku';
+  /** Specific model ID, not just the family — e.g. 'claude-sonnet-4-6'. */
+  model: ModelId;
+  /** Optional per-session system prompt. Empty string means no system prompt. */
+  systemPrompt: string;
   branch: string;
   createdAt: number;
   lastActiveAt: number;
@@ -197,14 +206,15 @@ The `tweaks` and `openIds` / `activeId` are persisted to local storage (cheap, f
 
 ```sql
 CREATE TABLE sessions (
-  id          TEXT PRIMARY KEY,
-  name        TEXT NOT NULL,
-  path        TEXT NOT NULL,
-  model       TEXT NOT NULL,
-  branch      TEXT,
-  created_at  INTEGER NOT NULL,
-  last_active INTEGER NOT NULL,
-  tokens      INTEGER NOT NULL DEFAULT 0
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  path          TEXT NOT NULL,
+  model         TEXT NOT NULL,           -- e.g. 'claude-sonnet-4-6'
+  system_prompt TEXT NOT NULL DEFAULT '',
+  branch        TEXT,
+  created_at    INTEGER NOT NULL,
+  last_active   INTEGER NOT NULL,
+  tokens        INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE turns (
@@ -229,8 +239,9 @@ Exposed on `window.api` via the preload script. All methods are async and typed.
 interface Api {
   sessions: {
     list(): Promise<Session[]>;
-    create(input: { name: string; path: string; model: ModelId }): Promise<Session>;
+    create(input: { name: string; path: string; model: ModelId; systemPrompt: string }): Promise<Session>;
     rename(id: string, name: string): Promise<void>;
+    updateSystemPrompt(id: string, systemPrompt: string): Promise<void>;
     delete(id: string): Promise<void>;
   };
   turns: {
@@ -246,6 +257,10 @@ interface Api {
     pickDirectory(): Promise<string | null>;     // OS-native picker
     branchFor(path: string): Promise<string>;    // reads .git/HEAD
   };
+  models: {
+    /** Lists every Claude model the API exposes, grouped by family. */
+    list(): Promise<{ family: ModelFamily; models: { id: ModelId; label: string; tier: string; description: string }[] }[]>;
+  };
   settings: {
     getApiKey(): Promise<boolean>;               // true if key is set in keychain
     setApiKey(key: string): Promise<void>;       // stored via safeStorage
@@ -253,7 +268,7 @@ interface Api {
 }
 ```
 
-`ChatEvent` covers `text-delta`, `tool-call-start`, `tool-result`, `done`, and `error`.
+`ChatEvent` covers `text-delta`, `tool-call-start`, `tool-result`, `done`, and `error`. **No** `run_command` tool — the v1 tool surface is `read_file`, `write_file`, `list_dir`, `search` only.
 
 ## 7. Animations
 

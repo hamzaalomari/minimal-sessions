@@ -33,12 +33,14 @@ A VS Code–style interface for browsing and running multiple Claude coding sess
 
 ### 4.1 Sessions
 
-- **FR-S1.** A session is `{ id, name, path, model, branch, createdAt, lastActiveAt, tokens, turns[] }`.
-- **FR-S2.** The user can **create** a session by providing a name (optional — auto-suggested from folder), a working folder (required), and a model (Opus / Sonnet / Haiku).
+- **FR-S1.** A session is `{ id, name, path, model, systemPrompt, branch, createdAt, lastActiveAt, tokens, turns[] }`.
+- **FR-S2.** The user can **create** a session by providing a name (optional — auto-suggested from folder), a working folder (required), a model (any current Claude model — see FR-S7), and an optional system prompt (see FR-S8).
 - **FR-S3.** The user can **rename** a session inline in the sidebar (Enter commits, Escape/blur cancels).
 - **FR-S4.** The user can **delete** a session — removes it from the list and closes its tab.
-- **FR-S5.** Sessions **persist** across app restarts (list, transcripts, drafts, tokens).
+- **FR-S5.** Sessions **persist** across app restarts (list, transcripts, drafts, tokens, system prompt).
 - **FR-S6.** Each session displays its current **git branch** for the working folder (read from `.git/HEAD`); blank if not a git repo.
+- **FR-S7.** The model picker exposes **every Claude model the API offers**, grouped by family (Opus, Sonnet, Haiku) and ordered newest-first within each family. Each row shows the model ID (e.g. `claude-opus-4-7`), the family color dot, and a one-line tier descriptor. The currently-recommended default is preselected.
+- **FR-S8.** Each session has a **configurable system prompt** that is sent on every API call. The new-session panel exposes it as an expandable "Custom instructions" field with a sensible default (a coding-assistant prompt scoped to the session's folder). After creation, the user can edit it via the session context menu → "Edit instructions". Empty system prompt is allowed and means "no system prompt".
 
 ### 4.2 Tabs
 
@@ -50,7 +52,7 @@ A VS Code–style interface for browsing and running multiple Claude coding sess
 ### 4.3 Transcript
 
 - **FR-R1.** A turn is `{ id, role: 'user' | 'assistant', blocks: Block[] }`.
-- **FR-R2.** Blocks supported: paragraph, subhead, bulleted list, fenced code block (with language label), tool line (read/edit/run/write/search), and expandable **tool window** with body (code, diff, or terminal output).
+- **FR-R2.** Blocks supported: paragraph, subhead, bulleted list, fenced code block (with language label), tool line (read/edit/write/search), and expandable **tool window** with body (code or diff). `run` is intentionally not in the kind set (see FR-M4).
 - **FR-R3.** Inline formatting: `**bold**` and `` `inline code` `` parse in paragraphs and list items.
 - **FR-R4.** Code blocks have **light syntax highlighting** (keywords, strings, comments) rendered as React nodes — never `innerHTML`.
 - **FR-R5.** Transcript auto-scrolls to the bottom on new turns and during typing.
@@ -70,7 +72,7 @@ A VS Code–style interface for browsing and running multiple Claude coding sess
 - **FR-M1.** On send, append a user turn locally, then call the Claude API with the full session history.
 - **FR-M2.** **Stream** the assistant response token-by-token into the transcript; the typing indicator stays until the stream starts producing content.
 - **FR-M3.** Token usage per turn comes from the API response's usage data — not heuristics. The session's running `tokens` total updates after each turn.
-- **FR-M4.** When Claude requests **tool use** (read file / write file / run command / search), the tool runs against the session's working folder via a sandboxed filesystem layer, and the result is fed back to Claude. Each tool call renders as a tool window in the transcript.
+- **FR-M4.** When Claude requests **tool use** (read file / write file / list directory / search), the tool runs against the session's working folder via a sandboxed filesystem layer, and the result is fed back to Claude. Each tool call renders as a tool window in the transcript. **Shell command execution is intentionally not offered** — the v1 tool surface is read/write/list/search only.
 - **FR-M5.** Errors from the API (rate limits, network, auth) render as an inline error block in the transcript, not as a crash.
 
 ### 4.6 Status bar
@@ -85,20 +87,21 @@ A VS Code–style interface for browsing and running multiple Claude coding sess
 - **FR-N1.** Right-anchored slide-in (440px) over a scrim. Animations: scrim fade 0.18s, panel slide 0.26s.
 - **FR-N2.** Session name field; auto-focused; auto-suggests `<folder> session` when blank.
 - **FR-N3.** Working folder field (required, accent `*`); opens the OS-native directory picker.
-- **FR-N4.** Model selection — three cards (Opus / Sonnet / Haiku) with name, tier pill, description, radio circle.
-- **FR-N5.** Cancel + **Create session** (disabled until folder + name are present).
+- **FR-N4.** Model selection — a scrollable list of **every Claude model the API offers**, grouped by family (Opus / Sonnet / Haiku). Each row: family color dot + model ID + tier label + one-line description + radio. The list is collapsible: by default it shows the recommended model per family (3 rows); a "Show all models" toggle expands to every version. Pre-selected default is the current Sonnet.
+- **FR-N5.** "Custom instructions" — collapsible field (`<details>`-style) showing the session's system prompt. Defaults to the standard coding-assistant prompt; the user can clear or replace it. Editable later via the session context menu.
+- **FR-N6.** Cancel + **Create session** (disabled until folder + name are present).
 
 ### 4.8 Settings & menus
 
 - **FR-X1.** Settings popover (anchored off the gear in the activity bar): theme (light/dark) and density (compact/cozy) segmented controls.
-- **FR-X2.** Session context menu (anchored off the sidebar item's kebab): Rename, Close tab (if open), separator, Delete session (danger).
+- **FR-X2.** Session context menu (anchored off the sidebar item's kebab): Rename, Edit instructions, Copy transcript, Close tab (if open), separator, Delete session (danger).
 
 ## 5. Non-functional requirements
 
 - **NFR-1. Native feel.** The app shell must look and feel like a desktop IDE, including macOS traffic-light dots, custom title bar, and a 28px status bar.
 - **NFR-2. High fidelity to the handoff.** Tokens (colors, radii, spacing, typography) are final per `design.md §4`. No improvisation on the design system.
 - **NFR-3. Performance.** Switching tabs is instant. Transcript with 200 turns scrolls at 60fps. Streaming does not block the UI thread.
-- **NFR-4. Security.** Filesystem access is scoped to the session's working folder; Claude tools cannot read or write outside it. The Anthropic API key is stored in the OS keychain, never in plaintext on disk or in renderer process memory.
+- **NFR-4. Security.** Filesystem access is scoped to the session's working folder; Claude tools cannot read or write outside it. **No shell command execution** is exposed to the model — the tool surface is read/write/list/search only. The Anthropic API key is stored in the OS keychain, never in plaintext on disk or in renderer process memory.
 - **NFR-5. Offline resilience.** Sessions and transcripts must remain readable when offline; only sending new messages should require connectivity.
 - **NFR-6. Accessibility.** All interactive elements are keyboard-reachable. Tab order is logical. Focus rings are visible (the design already specifies accent focus rings).
 - **NFR-7. Cross-platform.** macOS and Windows are first class. Linux works but is best-effort.
@@ -106,12 +109,13 @@ A VS Code–style interface for browsing and running multiple Claude coding sess
 ## 6. Out of scope (v1)
 
 - Multi-user / cloud sync.
-- Sharing or exporting sessions.
-- Custom system prompts per session.
+- Sharing or exporting sessions (beyond "Copy transcript" via the context menu).
+- **Shell command execution as a Claude tool** (see FR-M4 / NFR-4).
 - Multi-folder sessions (one session = one folder).
 - Plug-in / extension API.
 - Voice input.
 - Cost budgets / spending alerts beyond the per-session estimate.
+- Full-text search across transcripts (sidebar search is sessions-only in v1).
 
 ## 7. Success criteria
 
