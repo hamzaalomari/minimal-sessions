@@ -31,8 +31,8 @@ Five milestones. Each is independently mergeable and leaves the app in a working
 
 - Implement `<TitleBar>`, `<ActivityBar>`, `<Sidebar>`, `<TabBar>`, `<StatusBar>` per `design.md §3`.
 - Implement the empty states ("No session open" and per-session start card).
-- Implement `<SettingsPopover>` and `<ContextMenu>` (Rename / Close tab / Delete).
-- Implement `<NewSessionPanel>` shell — the form, model cards, slide-in animation. The folder field is wired to a placeholder until M3.
+- Implement `<SettingsPopover>` and `<ContextMenu>` (Rename / Edit instructions / Copy transcript / Close tab / Delete).
+- Implement `<NewSessionPanel>` shell — the form, **the grouped `<ModelPicker>` with "Show all models" toggle**, **the `<SystemPromptField>` (collapsible, defaults to the coding-assistant prompt)**, slide-in animation. The folder field is wired to a placeholder until M3; the model list is wired to a stubbed `api.models.list()` until M4.
 - Implement `<Transcript>`, `<Turn>`, `<Block>`, `<CodeBlock>`, `<ToolWindow>`, `<DiffView>` using the seed sessions from `app/data.jsx`.
 - Implement `<Composer>` with auto-grow, Enter/Shift+Enter, and per-session drafts; on send, just append a hard-coded canned reply (round-robin like the handoff) — no API yet.
 - Tab drag-reorder via HTML5 DnD.
@@ -90,11 +90,14 @@ Five milestones. Each is independently mergeable and leaves the app in a working
 
 - Add `@anthropic-ai/sdk` in main only.
 - Implement API key entry: a first-run modal asks for the key; stored via `safeStorage` to the OS keychain. `api.settings.getApiKey()` returns boolean only — the key never crosses the IPC boundary.
+- Implement `api.models.list()` in main — calls `client.models.list()`, groups by family (Opus / Sonnet / Haiku) by parsing the model ID, returns the structured list to the renderer. Cached in-memory for the app session.
 - Implement `api.chat.send(sessionId, userText, onEvent)`:
   - Loads the full turn history from SQLite, converts it to Anthropic's `messages` shape.
-  - Sets `model` per session (Opus 4.6 / Sonnet 4.6 / Haiku 4.6).
+  - Passes the session's specific `model` ID (e.g. `claude-sonnet-4-6`) to the SDK.
+  - Sends the session's `systemPrompt` as the `system` parameter (omitted if empty).
   - Streams via `client.messages.stream()`; pipes `text-delta`, `tool-use-start`, `tool-result`, `message-stop` events back over IPC.
-- Implement the sandboxed tool runner — when Claude requests `read_file`, `write_file`, `run_command`, `list_dir`, or `search`, run it against the session's working folder only. Reject any path that resolves outside the working folder.
+- Implement the sandboxed tool runner — when Claude requests `read_file`, `write_file`, `list_dir`, or `search`, run it against the session's working folder only. Reject any path whose `realpath` resolves outside the working folder. **`run_command` is not registered as a tool** — the model is never told it can run shell commands.
+- Implement the **"Edit instructions" dialog** wired to `api.sessions.updateSystemPrompt()`. Triggered from the session context menu.
 - Map streaming events into Block updates: text deltas append to the trailing `'p'` block, tool calls open a `'win'` block, tool results fill its body.
 - Update `session.tokens` from the real `usage` field on `message-stop`.
 - Render API errors (rate limit, network, 401, etc.) as an inline error block in the transcript — do not crash the renderer.
@@ -105,6 +108,9 @@ Five milestones. Each is independently mergeable and leaves the app in a working
 - [ ] Token meter updates with real usage from the API response.
 - [ ] Asking Claude to "read the README" produces a `read` tool window with the actual file contents.
 - [ ] Asking Claude to read a path outside the session folder is refused server-side (the tool runner returns an error result back to Claude).
+- [ ] The new-session model list shows every Claude model returned by `client.models.list()`, grouped by family.
+- [ ] Editing a session's system prompt via the context menu changes the next turn's behavior (verify by asking the model to repeat its instructions).
+- [ ] Tool listing surfaced to the model contains no shell-exec capability.
 - [ ] An invalid API key shows a clear error block, not a crash.
 
 ## M5 — Polish & ship
