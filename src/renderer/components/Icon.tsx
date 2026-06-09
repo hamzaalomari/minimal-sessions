@@ -1,0 +1,71 @@
+import type { CSSProperties } from 'react';
+
+/* Ported 1:1 from the design handoff (app/icons.jsx). 24x24, 1.8px stroke, currentColor. */
+const PATHS: Record<string, string> = {
+  spark: 'M12 3l1.9 5.4L19 10l-5.1 1.6L12 17l-1.9-5.4L5 10l5.1-1.6z',
+  plus: 'M12 5v14M5 12h14',
+  folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  sessions: 'M4 6h16M4 12h16M4 18h10',
+  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3',
+  gear:
+    'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 2.6 15H2.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 4 9.4a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 4.6h.1A1.6 1.6 0 0 0 10 2.5V2.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 15 4.6a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1A1.6 1.6 0 0 0 21.4 11h.1a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z',
+  x: 'M6 6l12 12M18 6L6 18',
+  close: 'M6 6l12 12M18 6L6 18',
+  sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z|M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+  moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
+  send: 'M12 19V5M5 12l7-7 7 7',
+  dots: 'M5 12h.01M12 12h.01M19 12h.01',
+  chevR: 'M9 6l6 6-6 6',
+  chevD: 'M6 9l6 6 6-6',
+  check: 'M5 12l4.5 4.5L19 7',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM5 20a7 7 0 0 1 14 0',
+  file: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5',
+  edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  pencil: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  trash: 'M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6',
+  copy: 'M9 9h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1zM5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1',
+  terminal: 'M5 5l6 6-6 6M13 17h6',
+  paperclip:
+    'M21 11.5l-8.6 8.6a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 1 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8',
+  cpu: 'M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3|M6 6h12v12H6zM10 10h4v4h-4z',
+  branch: 'M6 3v12M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 6v1a4 4 0 0 1-4 4H9',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  layout: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 3v18',
+  drive: 'M3 12h18M3 12l2-7h14l2 7M3 12v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5M7 16h.01',
+  arrowUp: 'M12 19V5M6 11l6-6 6 6',
+  sliders: 'M4 6h11M19 6h1M4 12h1M9 12h11M4 18h7M15 18h5|M17 4v4M7 10v4M13 16v4',
+};
+
+export type IconName = keyof typeof PATHS;
+
+interface IconProps {
+  name: IconName | string;
+  className?: string;
+  style?: CSSProperties;
+  size?: number;
+}
+
+export function Icon({ name, className, style, size }: IconProps) {
+  const raw = PATHS[name];
+  if (!raw) return null;
+  const groups = raw.split('|');
+  return (
+    <svg
+      className={className}
+      style={style}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {groups.map((d, i) => (
+        <path key={i} d={d} />
+      ))}
+    </svg>
+  );
+}
