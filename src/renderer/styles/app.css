@@ -59,28 +59,9 @@
   user-select: none;
 }
 
-.traffic {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  -webkit-app-region: no-drag;
-}
-
-.tdot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.tdot.r {
-  background: var(--tl-r);
-}
-.tdot.y {
-  background: var(--tl-y);
-}
-.tdot.g {
-  background: var(--tl-g);
+/* On macOS, leave room for the native traffic lights at x:14 (~70px wide cluster). */
+.titlebar.mac {
+  padding-left: 84px;
 }
 
 .title-name {

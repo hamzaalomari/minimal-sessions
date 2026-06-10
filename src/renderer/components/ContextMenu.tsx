@@ -4,7 +4,22 @@ import { usePopoverClose } from '../lib/usePopoverClose';
 
 export interface Anchor {
   left: number;
-  top: number;
+  /** Distance from the top of the viewport. Use this OR bottom, not both. */
+  top?: number;
+  /** Distance from the bottom of the viewport. Use this OR top, not both. */
+  bottom?: number;
+}
+
+export function anchorStyle(a: Anchor): {
+  left: number;
+  top?: number;
+  bottom?: number;
+} {
+  return {
+    left: a.left,
+    ...(a.top != null ? { top: a.top } : {}),
+    ...(a.bottom != null ? { bottom: a.bottom } : {}),
+  };
 }
 
 interface ContextMenuProps {
@@ -46,7 +61,7 @@ export function ContextMenu({
       ref={ref}
       className="ctx"
       role="menu"
-      style={{ left: anchor.left, top: anchor.top }}
+      style={anchorStyle(anchor)}
       data-testid="context-menu"
     >
       {item('Rename', 'pencil', onRename)}

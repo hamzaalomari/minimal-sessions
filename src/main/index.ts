@@ -1,14 +1,14 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { platform } from 'node:process';
 import type { Platform } from '@shared/api';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const isMac = platform === 'darwin';
 
 function createWindow(): BrowserWindow {
-  const isMac = platform === 'darwin';
-
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -49,13 +49,100 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+/**
+ * Build the application menu. Cmd/Ctrl+W is rebound to send the renderer a
+ * "request-close-tab" event; the renderer decides whether to close a tab or
+ * fall back to closing the window.
+ */
+function buildMenu(): Menu {
+  const closeTabItem: MenuItemConstructorOptions = {
+    label: 'Close Tab',
+    accelerator: 'CmdOrCtrl+W',
+    click: (_item, focusedWindow) => {
+      if (focusedWindow instanceof BrowserWindow) {
+        focusedWindow.webContents.send('app:request-close-tab');
+      }
+    },
+  };
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? ([
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ] as MenuItemConstructorOptions[])
+      : []),
+    {
+      label: 'File',
+      submenu: [
+        closeTabItem,
+        { role: 'close', label: 'Close Window', accelerator: 'Shift+CmdOrCtrl+W' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac
+          ? ([{ type: 'separator' }, { role: 'front' }] as MenuItemConstructorOptions[])
+          : []),
+      ],
+    },
+  ];
+
+  return Menu.buildFromTemplate(template);
+}
+
 function registerIpc(): void {
   ipcMain.handle('app:ping', () => 'pong' as const);
   ipcMain.handle('app:platform', () => platform as Platform);
+  ipcMain.handle('app:close-window', (e) => {
+    BrowserWindow.fromWebContents(e.sender)?.close();
+  });
 }
 
 app.whenReady().then(() => {
   registerIpc();
+  Menu.setApplicationMenu(buildMenu());
   createWindow();
 
   app.on('activate', () => {
@@ -64,5 +151,5 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (platform !== 'darwin') app.quit();
+  if (!isMac) app.quit();
 });

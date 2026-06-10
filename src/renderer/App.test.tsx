@@ -7,15 +7,27 @@ import { SEED_OPEN_IDS, SEED_SESSIONS } from './data/seed';
 import { useSessions } from './state/sessions';
 import { useTweaks } from './state/tweaks';
 
-function installApi(platform: Platform = 'darwin'): Api {
+function installApi(
+  platform: Platform = 'darwin',
+): Api & { __fireCloseTab: () => void } {
+  let closeTabHandler: (() => void) | null = null;
   const api: Api = {
     app: {
       ping: vi.fn().mockResolvedValue('pong' as const),
       platform: vi.fn().mockResolvedValue(platform),
+      closeWindow: vi.fn().mockResolvedValue(undefined),
+      onRequestCloseTab: vi.fn((handler: () => void) => {
+        closeTabHandler = handler;
+        return () => {
+          closeTabHandler = null;
+        };
+      }),
     },
   };
   (window as unknown as { api: Api }).api = api;
-  return api;
+  return Object.assign(api, {
+    __fireCloseTab: () => closeTabHandler?.(),
+  });
 }
 
 function resetStores() {
@@ -95,22 +107,21 @@ describe('<App />', () => {
     await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
   });
 
-  it('renders traffic light dots on macOS', async () => {
+  it('marks the title bar with .mac on macOS so native traffic lights get clearance', async () => {
     installApi('darwin');
     const { container } = render(<App />);
     await waitFor(() => {
-      expect(container.querySelector('.traffic')).toBeInTheDocument();
+      expect(container.querySelector('.titlebar.mac')).toBeInTheDocument();
     });
-    expect(container.querySelectorAll('.tdot')).toHaveLength(3);
   });
 
-  it('hides traffic light dots on non-mac platforms', async () => {
+  it('leaves the title bar unmarked on non-mac platforms', async () => {
     installApi('win32');
     const { container } = render(<App />);
     await waitFor(() => {
       expect(window.api.app.platform).toHaveBeenCalled();
     });
-    expect(container.querySelector('.traffic')).not.toBeInTheDocument();
+    expect(container.querySelector('.titlebar.mac')).not.toBeInTheDocument();
   });
 
   it('theme toggle flips light ↔ dark', async () => {
@@ -170,6 +181,25 @@ describe('<App />', () => {
     const newBtns = screen.getAllByRole('button', { name: /^new session$/i });
     await user.click(newBtns[0]!);
     expect(screen.getByTestId('new-session-panel')).toBeInTheDocument();
+  });
+
+  it('Cmd+W (request-close-tab) closes the active tab when one is open', async () => {
+    const api = installApi('darwin');
+    render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    const initialActive = SEED_OPEN_IDS[0]!;
+    expect(useSessions.getState().openIds).toContain(initialActive);
+    api.__fireCloseTab();
+    expect(useSessions.getState().openIds).not.toContain(initialActive);
+  });
+
+  it('Cmd+W falls back to closeWindow when no tabs are open', async () => {
+    const api = installApi('darwin');
+    useSessions.setState({ openIds: [], activeId: null });
+    render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    api.__fireCloseTab();
+    expect(api.app.closeWindow).toHaveBeenCalledTimes(1);
   });
 
   it('creating a session via the panel adds it to the store and closes the panel', async () => {

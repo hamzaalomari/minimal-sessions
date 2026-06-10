@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import type { Density, Theme } from '../state/tweaks';
 import { Icon } from './Icon';
 import { usePopoverClose } from '../lib/usePopoverClose';
-import type { Anchor } from './ContextMenu';
+import { anchorStyle, type Anchor } from './ContextMenu';
 
 interface SettingsPopoverProps {
   anchor: Anchor;
@@ -30,7 +30,7 @@ export function SettingsPopover({
       className="settings-pop"
       role="dialog"
       aria-label="Appearance settings"
-      style={{ left: anchor.left, top: anchor.top }}
+      style={anchorStyle(anchor)}
       data-testid="settings-popover"
     >
       <div className="set-hd">Appearance</div>
