@@ -58,4 +58,14 @@ describe('<SettingsPopover>', () => {
     fireEvent.mouseDown(screen.getByTestId('outside'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('does NOT close on mousedown inside the trigger element (toggle support)', () => {
+    const onClose = vi.fn();
+    // Render the trigger first so we can pass its DOM node.
+    const { container } = render(<button data-testid="trigger">Settings</button>);
+    const trigger = container.querySelector('[data-testid="trigger"]') as HTMLElement;
+    render(<SettingsPopover {...baseProps} onClose={onClose} triggerEl={trigger} />);
+    fireEvent.mouseDown(trigger);
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });

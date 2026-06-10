@@ -64,7 +64,7 @@ export function App() {
   const active = useActiveSession();
 
   const [platform, setPlatform] = useState<Platform | ''>('');
-  const [settingsAnchor, setSettingsAnchor] = useState<Anchor | null>(null);
+  const [settings, setSettings] = useState<{ anchor: Anchor; trigger: HTMLElement } | null>(null);
   const [menu, setMenu] = useState<{ id: string; anchor: Anchor } | null>(null);
 
   useEffect(() => {
@@ -103,7 +103,11 @@ export function App() {
       <ActivityBar
         sideOpen={sideOpen}
         onToggleSide={toggleSide}
-        onOpenSettings={(el) => setSettingsAnchor(leftEdgePopAnchor(el))}
+        onOpenSettings={(el) =>
+          setSettings((current) =>
+            current ? null : { anchor: leftEdgePopAnchor(el), trigger: el },
+          )
+        }
       />
       <Sidebar
         onOpenMenu={(id, anchor) => setMenu({ id, anchor: menuAnchor(anchor) })}
@@ -141,14 +145,15 @@ export function App() {
         />
       )}
 
-      {settingsAnchor && (
+      {settings && (
         <SettingsPopover
-          anchor={settingsAnchor}
+          anchor={settings.anchor}
+          triggerEl={settings.trigger}
           theme={theme}
           density={density}
           onThemeChange={setTheme}
           onDensityChange={setDensity}
-          onClose={() => setSettingsAnchor(null)}
+          onClose={() => setSettings(null)}
         />
       )}
 
