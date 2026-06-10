@@ -30,6 +30,7 @@ function installChatApi() {
       rename: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn().mockResolvedValue(undefined),
       restore: vi.fn().mockResolvedValue(undefined),
+      purge: vi.fn().mockResolvedValue(undefined),
       create: vi.fn().mockResolvedValue(undefined),
       list: vi.fn().mockResolvedValue([]),
       listDeleted: vi.fn().mockResolvedValue([]),

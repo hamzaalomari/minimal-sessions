@@ -45,6 +45,7 @@ const api: Api = {
       ipcRenderer.invoke('sessions:update-system-prompt', id, prompt),
     delete: (id) => ipcRenderer.invoke('sessions:delete', id),
     restore: (id) => ipcRenderer.invoke('sessions:restore', id),
+    purge: (id) => ipcRenderer.invoke('sessions:purge', id),
   },
   turns: {
     list: (sessionId) => ipcRenderer.invoke('turns:list', sessionId),

@@ -20,6 +20,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
     setSidebarView,
     commitRename,
     restoreSession,
+    purgeSession,
   } = useSessions(
     useShallow((s) => ({
       sessions: s.sessions,
@@ -32,6 +33,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
       setSidebarView: s.setSidebarView,
       commitRename: s.commitRename,
       restoreSession: s.restoreSession,
+      purgeSession: s.purgeSession,
     })),
   );
 
@@ -72,14 +74,32 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
                     {s.turns.length} {s.turns.length === 1 ? 'message' : 'messages'}
                   </span>
                 </div>
-                <button
-                  className="si-restore"
-                  title="Restore session"
-                  aria-label="Restore session"
-                  onClick={() => restoreSession(s.id)}
-                >
-                  Restore
-                </button>
+                <div className="si-history-actions">
+                  <button
+                    className="si-restore"
+                    title="Restore session"
+                    aria-label="Restore session"
+                    onClick={() => restoreSession(s.id)}
+                  >
+                    Restore
+                  </button>
+                  <button
+                    className="si-purge"
+                    title="Delete session forever"
+                    aria-label="Delete session forever"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Permanently delete "${s.name}"? This cannot be undone.`,
+                        )
+                      ) {
+                        purgeSession(s.id);
+                      }
+                    }}
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </div>
               </div>
             ))
           )}

@@ -98,6 +98,8 @@ export interface Api {
     delete(id: SessionId): Promise<void>;
     /** Restore a previously soft-deleted session back to active. */
     restore(id: SessionId): Promise<void>;
+    /** Permanently delete a session and its turns. Used from the History view. */
+    purge(id: SessionId): Promise<void>;
   };
   turns: {
     list(sessionId: SessionId): Promise<Turn[]>;

@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SEED_OPEN_IDS, SEED_SESSIONS } from '@shared/seed';
 import { useSessions } from '../state/sessions';
 import { Sidebar } from './Sidebar';
@@ -73,5 +73,30 @@ describe('<Sidebar />', () => {
     useSessions.setState({ sidebarView: 'history', deletedSessions: [] });
     render(<Sidebar />);
     expect(screen.getByText(/no deleted sessions/i)).toBeInTheDocument();
+  });
+
+  it('clicking the trash button purges (after confirm) and removes from history', async () => {
+    const deleted = { ...SEED_SESSIONS[0]!, id: 'gone-2', name: 'gone-2' };
+    useSessions.setState({ sidebarView: 'history', deletedSessions: [deleted] });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    await user.click(screen.getByRole('button', { name: /delete session forever/i }));
+    const s = useSessions.getState();
+    expect(s.deletedSessions.find((x) => x.id === 'gone-2')).toBeUndefined();
+    confirmSpy.mockRestore();
+  });
+
+  it('cancelling the confirm leaves the session in history', async () => {
+    const deleted = { ...SEED_SESSIONS[0]!, id: 'stay', name: 'stay' };
+    useSessions.setState({ sidebarView: 'history', deletedSessions: [deleted] });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    await user.click(screen.getByRole('button', { name: /delete session forever/i }));
+    expect(
+      useSessions.getState().deletedSessions.find((x) => x.id === 'stay'),
+    ).toBeDefined();
+    confirmSpy.mockRestore();
   });
 });

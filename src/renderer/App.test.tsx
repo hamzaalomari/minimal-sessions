@@ -44,6 +44,7 @@ function installApi(
       updateSystemPrompt: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn().mockResolvedValue(undefined),
       restore: vi.fn().mockResolvedValue(undefined),
+      purge: vi.fn().mockResolvedValue(undefined),
     },
     turns: {
       list: vi.fn().mockResolvedValue([]),

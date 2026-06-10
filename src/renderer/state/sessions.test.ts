@@ -300,6 +300,7 @@ describe('sessions store', () => {
           updateSystemPrompt: vi.fn(),
           delete: mocks.delete,
           restore: vi.fn().mockResolvedValue(undefined),
+          purge: vi.fn().mockResolvedValue(undefined),
         },
         turns: {
           list: vi.fn(),

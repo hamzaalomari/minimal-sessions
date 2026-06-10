@@ -40,6 +40,8 @@ interface SessionsState {
   deleteSession(id: SessionId): void;
   /** Bring a soft-deleted session back into sessions. */
   restoreSession(id: SessionId): void;
+  /** Permanently delete a session that was already in the History bucket. */
+  purgeSession(id: SessionId): void;
   setSidebarView(view: SidebarView): void;
   startRename(id: SessionId): void;
   commitRename(id: SessionId, name: string | null): void;
@@ -202,6 +204,13 @@ export const useSessions = create<SessionsState>()(
           };
         });
         void window.api?.sessions.restore(id).catch(() => {});
+      },
+
+      purgeSession: (id) => {
+        set((s) => ({
+          deletedSessions: s.deletedSessions.filter((x) => x.id !== id),
+        }));
+        void window.api?.sessions.purge(id).catch(() => {});
       },
 
       setSidebarView: (view) => set({ sidebarView: view }),
