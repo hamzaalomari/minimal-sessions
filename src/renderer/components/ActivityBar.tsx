@@ -1,9 +1,10 @@
+import type { MouseEvent } from 'react';
 import { Icon } from './Icon';
 
 interface ActivityBarProps {
   sideOpen: boolean;
   onToggleSide(): void;
-  onOpenSettings?(): void;
+  onOpenSettings?(anchor: HTMLElement): void;
   onOpenSearch?(): void;
 }
 
@@ -13,6 +14,10 @@ export function ActivityBar({
   onOpenSettings,
   onOpenSearch,
 }: ActivityBarProps) {
+  const handleSettings = (e: MouseEvent<HTMLButtonElement>) => {
+    onOpenSettings?.(e.currentTarget);
+  };
+
   return (
     <div className="activitybar">
       <div className="act-mark" title="Claude Session Viewer">
@@ -39,7 +44,7 @@ export function ActivityBar({
         className="act-btn"
         title="Settings"
         aria-label="Settings"
-        onClick={onOpenSettings}
+        onClick={handleSettings}
       >
         <Icon name="gear" />
       </button>

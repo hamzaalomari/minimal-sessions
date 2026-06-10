@@ -131,4 +131,61 @@ describe('<App />', () => {
     await user.click(screen.getByRole('button', { name: /toggle sessions sidebar/i }));
     expect(container.querySelector('.app')).toHaveClass('side-collapsed');
   });
+
+  it('settings button opens the settings popover', async () => {
+    installApi('darwin');
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.queryByTestId('settings-popover')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^settings$/i }));
+    expect(screen.getByTestId('settings-popover')).toBeInTheDocument();
+  });
+
+  it('sidebar kebab opens the context menu for that session', async () => {
+    installApi('darwin');
+    const user = userEvent.setup();
+    render(<App />);
+    const kebabs = screen.getAllByRole('button', { name: /session options/i });
+    expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
+    await user.click(kebabs[0]!);
+    expect(screen.getByTestId('context-menu')).toBeInTheDocument();
+  });
+
+  it('context menu delete removes the session from the store', async () => {
+    installApi('darwin');
+    const user = userEvent.setup();
+    render(<App />);
+    const before = useSessions.getState().sessions.length;
+    const kebabs = screen.getAllByRole('button', { name: /session options/i });
+    await user.click(kebabs[0]!);
+    await user.click(screen.getByRole('button', { name: /delete session/i }));
+    expect(useSessions.getState().sessions.length).toBe(before - 1);
+  });
+
+  it('plus button opens the new session panel', async () => {
+    installApi('darwin');
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.queryByTestId('new-session-panel')).not.toBeInTheDocument();
+    const newBtns = screen.getAllByRole('button', { name: /^new session$/i });
+    await user.click(newBtns[0]!);
+    expect(screen.getByTestId('new-session-panel')).toBeInTheDocument();
+  });
+
+  it('creating a session via the panel adds it to the store and closes the panel', async () => {
+    installApi('darwin');
+    const user = userEvent.setup();
+    render(<App />);
+    const before = useSessions.getState().sessions.length;
+    const newBtns = screen.getAllByRole('button', { name: /^new session$/i });
+    await user.click(newBtns[0]!);
+    await user.click(screen.getByRole('button', { name: /browse/i }));
+    await user.click(screen.getByText('Documents'));
+    await user.type(screen.getByLabelText(/session name/i), 'fresh start');
+    await user.click(screen.getByRole('button', { name: /create session/i }));
+    const after = useSessions.getState().sessions;
+    expect(after.length).toBe(before + 1);
+    expect(after[0]?.name).toBe('fresh start');
+    expect(screen.queryByTestId('new-session-panel')).not.toBeInTheDocument();
+  });
 });

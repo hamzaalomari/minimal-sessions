@@ -7,6 +7,7 @@ import { useSessions } from '../state/sessions';
 
 export function TabBar() {
   const dragId = useRef<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
   const { sessions, openIds, activeId, selectSession, closeTab, reorderTabs, setShowNew } =
@@ -32,6 +33,7 @@ export function TabBar() {
 
   const onDragStart = (id: string) => () => {
     dragId.current = id;
+    setDragging(id);
   };
 
   const onDragOver = (id: string) => (e: DragEvent) => {
@@ -46,6 +48,14 @@ export function TabBar() {
   const onDrop = (id: string) => (e: DragEvent) => {
     e.preventDefault();
     if (dragId.current) reorderTabs(dragId.current, id);
+    setDragOver(null);
+    setDragging(null);
+    dragId.current = null;
+  };
+
+  const onDragEnd = () => {
+    // Fires whether the drop landed or was cancelled.
+    setDragging(null);
     setDragOver(null);
     dragId.current = null;
   };
@@ -70,11 +80,13 @@ export function TabBar() {
               className={
                 'tab' +
                 (isActive ? ' active' : '') +
-                (dragOver === s.id ? ' drop-target' : '')
+                (dragging === s.id ? ' dragging' : '') +
+                (dragOver === s.id && dragging !== s.id ? ' drop-target' : '')
               }
               draggable
               onClick={() => selectSession(s.id)}
               onDragStart={onDragStart(s.id)}
+              onDragEnd={onDragEnd}
               onDragOver={onDragOver(s.id)}
               onDragLeave={onDragLeave(s.id)}
               onDrop={onDrop(s.id)}
