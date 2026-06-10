@@ -89,11 +89,12 @@ describe('<App />', () => {
     delete (window as unknown as { api?: Api }).api;
   });
 
-  it('renders the title bar with the active session name', async () => {
+  it('renders the title bar with the app name (not the active session name)', async () => {
     installApi('darwin');
     render(<App />);
-    const activeName = SEED_SESSIONS.find((s) => s.id === SEED_OPEN_IDS[0])!.name;
-    expect(screen.getByText(activeName, { selector: '.title-name' })).toBeInTheDocument();
+    expect(
+      screen.getByText('AI Work Viewer', { selector: '.title-name' }),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(window.api.app.platform).toHaveBeenCalled();
     });

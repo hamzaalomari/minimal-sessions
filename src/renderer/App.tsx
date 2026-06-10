@@ -104,7 +104,7 @@ export function App() {
   }, []);
 
   const isMac = platform === 'darwin';
-  const title = active ? active.name : 'Claude Session Viewer';
+  const title = 'AI Work Viewer';
   const editingSession = editingInstructionsFor
     ? sessions.find((s) => s.id === editingInstructionsFor) ?? null
     : null;

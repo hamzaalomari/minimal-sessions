@@ -1,5 +1,6 @@
 {
   "name": "ai-work-viewer",
+  "productName": "AI Work Viewer",
   "version": "0.0.0",
   "private": true,
   "description": "Desktop viewer for multiple Claude coding sessions, each scoped to a folder and model.",
