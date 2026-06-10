@@ -281,31 +281,36 @@ export interface SdkModel {
 /**
  * List the models the locally-installed Claude binary advertises.
  *
- * The SDK only exposes `supportedModels()` on a running `Query`, so we start
- * a streaming-input query that never yields, fetch the list, then abort.
+ * `supportedModels()` lives on a `Query`, which needs a prompt to be created.
+ * We pass a trivial string prompt and abort immediately after the SDK has
+ * resolved its init response so no API call is ever made.
  */
 export async function listSupportedModels(): Promise<SdkModel[]> {
   const abort = new AbortController();
-  const inputIter = (async function* () {
-    // Block until the caller aborts; we never feed a real message in.
-    await new Promise<void>((resolve) => {
-      const onAbort = (): void => resolve();
-      abort.signal.addEventListener('abort', onAbort, { once: true });
-    });
-  })();
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q = (sdkQuery as any)({
-    prompt: inputIter,
+    prompt: 'list-models',
     options: { abortController: abort },
   });
+  const timeoutMs = 8000;
+  const timeoutP = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`supportedModels() timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
   try {
-    const models = await q.supportedModels();
-    return models.map((m: { value: string; displayName: string; description: string }) => ({
+    const raw = await Promise.race([q.supportedModels(), timeoutP]);
+    const list = raw as Array<{ value: string; displayName: string; description: string }>;
+    console.log(
+      `[models] supportedModels returned ${list.length} entries:`,
+      list.map((m) => m.value).join(', '),
+    );
+    return list.map((m) => ({
       id: m.value,
       displayName: m.displayName,
       description: m.description,
     }));
+  } catch (e) {
+    console.error('[models] supportedModels failed:', (e as Error).message);
+    throw e;
   } finally {
     abort.abort();
   }
