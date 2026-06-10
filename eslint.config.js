@@ -11,12 +11,15 @@ const nodeGlobals = {
   console: 'readonly',
   Buffer: 'readonly',
   global: 'readonly',
+  globalThis: 'readonly',
   module: 'readonly',
   require: 'readonly',
   setTimeout: 'readonly',
   setInterval: 'readonly',
   clearTimeout: 'readonly',
   clearInterval: 'readonly',
+  AbortController: 'readonly',
+  Promise: 'readonly',
 };
 
 export default [
