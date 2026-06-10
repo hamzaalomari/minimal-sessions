@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ModelId } from '@shared/types';
 import { Icon } from './Icon';
 import { ModelPicker } from './ModelPicker';
@@ -78,7 +79,7 @@ export function NewSessionPanel({
     });
   };
 
-  return (
+  const node = (
     <>
       <div className="ns-scrim" onClick={onClose} data-testid="ns-scrim" />
       <aside
@@ -173,4 +174,6 @@ export function NewSessionPanel({
       </aside>
     </>
   );
+
+  return createPortal(node, document.body);
 }

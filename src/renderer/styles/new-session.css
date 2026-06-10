@@ -2,7 +2,7 @@
 
 /* ───── Slide-in panel ───── */
 .ns-scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(20, 16, 8, 0.28);
   z-index: 40;
@@ -21,9 +21,12 @@ body[data-theme='dark'] .ns-scrim {
 }
 
 .ns-panel {
-  position: absolute;
+  position: fixed;
   top: 0;
-  right: 0;
+  /* Animate from off-screen via right: -100% so the panel never extends
+   * past the viewport's right edge at any frame — eliminates the brief
+   * horizontal-overflow flash that nudged the main content. */
+  right: -460px;
   bottom: 0;
   width: 440px;
   max-width: 92%;
@@ -33,13 +36,12 @@ body[data-theme='dark'] .ns-scrim {
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
   animation: ns-slidein 0.26s cubic-bezier(0.22, 0.7, 0.3, 1) forwards;
 }
 
 @keyframes ns-slidein {
   to {
-    transform: translateX(0);
+    right: 0;
   }
 }
 
