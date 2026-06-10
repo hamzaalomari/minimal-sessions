@@ -1,138 +1,116 @@
-# Implementation Plan — Claude Session Viewer
+# Implementation Plan — AI Work Viewer
 
-Five milestones. Each is independently mergeable and leaves the app in a working state. Each milestone ends with a checklist of acceptance criteria that map back to the requirements in `spec.md`.
+Five milestones. Each is independently mergeable and leaves the app in a working state.
 
-## M0 — Project scaffolding
+> **Status (2026-06-11):** M0 through M4 are merged and on `master`. M5 is the remaining work.
+
+## M0 — Project scaffolding ✅
 
 **Goal:** an Electron + React + TypeScript app boots, with strict process boundaries and the design tokens loaded.
 
-**Tasks**
+Done. Highlights of what shipped:
 
-- Initialize `package.json`, install React 18, TypeScript, Vite, electron-vite, ESLint, Prettier.
-- Set up the three-process structure: `src/main`, `src/preload`, `src/renderer`.
-- Configure `electron-vite.config.ts` and `tsconfig.json` for each process.
-- Add the frameless window with the `titleBarStyle: 'hiddenInset'` on macOS and custom controls on Windows.
-- Port `app/icons.jsx` verbatim to `src/renderer/components/Icon.tsx` as a typed component.
-- Create `src/renderer/styles/tokens.css` containing every custom property from `design.md §4` (both themes).
-- Wire `useTweaks` (theme, accent, readFont, density) to a Zustand store and `[data-theme]` on `<body>`.
-- Add a smoke test: app boots, shows an empty grid shell with the title bar and activity bar visible, theme toggle flips light/dark.
+- React 18 + TypeScript + Vite + electron-vite + ESLint + Prettier.
+- Three-process structure: `src/main`, `src/preload`, `src/renderer`, with `src/shared` for cross-process types/utilities.
+- Frameless window: `titleBarStyle: 'hiddenInset'` on macOS, `titleBarOverlay` on Windows.
+- `Icon.tsx` ported 1:1 from the handoff.
+- `tokens.css` with light + dark themes per `design.md §4`.
+- Tweaks store (theme/accent/readFont/density) wired to `[data-theme]` / `[data-density]` on `<body>`.
+- Vitest + Testing Library covering the M0 surface.
 
-**Acceptance**
+## M1 — App shell (chrome, no data) ✅
 
-- [ ] `npm run dev` opens the app with a hot-reloading renderer.
-- [ ] Light/dark toggle flips every component in the rendered shell.
-- [ ] No `nodeIntegration` in the renderer; preload exposes only a typed `window.api`.
+**Goal:** all chrome from the handoff is on screen with mocked session data.
 
-## M1 — App shell (chrome, no data)
+Done. Highlights:
 
-**Goal:** all chrome from the handoff is on screen with mocked session data — no Claude integration yet.
-
-**Tasks**
-
-- Implement `<TitleBar>`, `<ActivityBar>`, `<Sidebar>`, `<TabBar>`, `<StatusBar>` per `design.md §3`.
-- Implement the empty states ("No session open" and per-session start card).
-- Implement `<SettingsPopover>` and `<ContextMenu>` (Rename / Edit instructions / Copy transcript / Close tab / Delete).
-- Implement `<NewSessionPanel>` shell — the form, **the grouped `<ModelPicker>` with "Show all models" toggle**, **the `<SystemPromptField>` (collapsible, defaults to the coding-assistant prompt)**, slide-in animation. The folder field is wired to a placeholder until M3; the model list is wired to a stubbed `api.models.list()` until M4.
-- Implement `<Transcript>`, `<Turn>`, `<Block>`, `<CodeBlock>`, `<ToolWindow>`, `<DiffView>` using the seed sessions from `app/data.jsx`.
-- Implement `<Composer>` with auto-grow, Enter/Shift+Enter, and per-session drafts; on send, just append a hard-coded canned reply (round-robin like the handoff) — no API yet.
+- `<TitleBar>`, `<ActivityBar>`, `<Sidebar>`, `<TabBar>`, status bar.
+- Empty states: "No session open" and the per-session start card.
+- `<SettingsPopover>` and `<ContextMenu>`.
+- `<NewSessionPanel>` shell with the form, `<ModelPicker>`, and `<SystemPromptField>`.
+- `<Transcript>`, `<Turn>`, `<Block>`, `<CodeBlock>`, `<ToolWindow>`, `<DiffView>` rendering seed data.
+- `<Composer>` with auto-grow, Enter/Shift+Enter, per-session drafts, canned-reply round robin (replaced in M4).
 - Tab drag-reorder via HTML5 DnD.
 - Inline rename via the sidebar context menu.
 
-**Acceptance**
-
-- [ ] All seed sessions from `app/data.jsx` render identically to the handoff prototype side-by-side.
-- [ ] Tabs can be reordered by dragging.
-- [ ] Composer drafts persist when switching tabs.
-- [ ] Sidebar collapses and expands smoothly.
-- [ ] Settings popover and session context menu close on outside click.
-
-## M2 — Persistence (SQLite + IPC)
+## M2 — Persistence (SQLite + IPC) ✅
 
 **Goal:** sessions and transcripts survive an app restart.
 
-**Tasks**
+Done. Highlights:
 
-- Add `better-sqlite3`; rebuild for Electron's Node ABI via `electron-rebuild`.
-- Create the schema from `design.md §5` in `app.getPath('userData')/sessions.db`.
-- Implement the `sessions.*` and `turns.*` IPC methods in main with prepared statements.
-- Wire the renderer store to lazily load sessions on startup and hydrate via IPC.
-- Persist `turns` on every append (after a send / reply); persist `sessions` on create, rename, delete, model change, and after each turn's token total updates.
-- Migrate the `tweaks`, `openIds`, `activeId` to `localStorage` (renderer-local, no IPC round-trip).
+- `better-sqlite3` with `electron-rebuild`. ABI flip-flop between `npm test` (Node) and `npm run dev` (Electron) is handled by `predev` / `prebuild` hooks (added in M4 polish).
+- Schema in `app.getPath('userData')/sessions.db`.
+- `sessions.*` and `turns.*` IPC methods with prepared statements.
+- Renderer hydrates from main on startup.
+- UI state (`openIds`, `activeId`, `sideOpen`, `drafts`) persisted to `localStorage`.
 
-**Acceptance**
-
-- [ ] Create a session, send a message (still canned reply), restart the app — session and turns are exactly where they were.
-- [ ] Deleting a session removes it from disk and closes its tab.
-- [ ] No SQLite file handles leak when sessions are deleted (cascade delete works).
-
-## M3 — Filesystem integration
+## M3 — Filesystem integration ✅
 
 **Goal:** the working folder is real; git branch shows up automatically.
 
-**Tasks**
+Done. Highlights:
 
-- Replace the mocked finder with the OS-native picker: `dialog.showOpenDialog({ properties: ['openDirectory'] })` in main; expose via `api.fs.pickDirectory()`.
-- Add `api.fs.branchFor(path)` — reads `.git/HEAD` in main, returns the branch name or `''`.
-- Display the absolute path with `~/` tilde-expansion for the user's home, both in the new-session panel and the status bar.
-- Validate that the folder exists and is readable before allowing session create; show an inline error in the panel if not.
+- `api.fs.pickDirectory()` opens the native picker.
+- `api.fs.branchFor(path)` reads `.git/HEAD`, returns the branch name or `''`.
+- `api.fs.isReadableDir(path)` validates folder before allowing session create.
+- Absolute paths tilde-collapsed for display (`~/dev/foo`).
 
-**Acceptance**
-
-- [ ] Browse… opens the native picker; selecting a folder fills the path field and auto-suggests a name.
-- [ ] Git branch shows correctly for repos; blank for non-git folders.
-- [ ] Renaming or deleting the folder on disk after session creation does not crash the app — the session is marked as "folder missing" but is still readable.
-
-## M4 — Claude integration
+## M4 — Claude integration ✅
 
 **Goal:** real Claude conversations, streaming, with tool use against the working folder.
 
-**Tasks**
+**Pivot:** the original plan was to bring up `@anthropic-ai/sdk` + first-run API-key entry + `safeStorage` + a custom sandboxed tool runner. During implementation we replaced all of that with **`@anthropic-ai/claude-agent-sdk`**, which:
 
-- Add `@anthropic-ai/sdk` in main only.
-- Implement API key entry: a first-run modal asks for the key; stored via `safeStorage` to the OS keychain. `api.settings.getApiKey()` returns boolean only — the key never crosses the IPC boundary.
-- Implement `api.models.list()` in main — calls `client.models.list()`, groups by family (Opus / Sonnet / Haiku) by parsing the model ID, returns the structured list to the renderer. Cached in-memory for the app session.
-- Implement `api.chat.send(sessionId, userText, onEvent)`:
-  - Loads the full turn history from SQLite, converts it to Anthropic's `messages` shape.
-  - Passes the session's specific `model` ID (e.g. `claude-sonnet-4-6`) to the SDK.
-  - Sends the session's `systemPrompt` as the `system` parameter (omitted if empty).
-  - Streams via `client.messages.stream()`; pipes `text-delta`, `tool-use-start`, `tool-result`, `message-stop` events back over IPC.
-- Implement the sandboxed tool runner — when Claude requests `read_file`, `write_file`, `list_dir`, or `search`, run it against the session's working folder only. Reject any path whose `realpath` resolves outside the working folder. **`run_command` is not registered as a tool** — the model is never told it can run shell commands.
-- Implement the **"Edit instructions" dialog** wired to `api.sessions.updateSystemPrompt()`. Triggered from the session context menu.
-- Map streaming events into Block updates: text deltas append to the trailing `'p'` block, tool calls open a `'win'` block, tool results fill its body.
-- Update `session.tokens` from the real `usage` field on `message-stop`.
-- Render API errors (rate limit, network, 401, etc.) as an inline error block in the transcript — do not crash the renderer.
+- ships its own bundled Claude binary,
+- reuses the device's existing Claude Code auth (OAuth subscription or `ANTHROPIC_API_KEY`),
+- owns its own tool surface (including bash) and sandboxing.
 
-**Acceptance**
+The user no longer enters an API key. There is no `safeStorage`, no `settings.getApiKey/setApiKey`, no custom tool runner. See `open-questions.md` Q16 for the trade-off.
 
-- [ ] Real Claude reply streams into the transcript token-by-token.
-- [ ] Token meter updates with real usage from the API response.
-- [ ] Asking Claude to "read the README" produces a `read` tool window with the actual file contents.
-- [ ] Asking Claude to read a path outside the session folder is refused server-side (the tool runner returns an error result back to Claude).
-- [ ] The new-session model list shows every Claude model returned by `client.models.list()`, grouped by family.
-- [ ] Editing a session's system prompt via the context menu changes the next turn's behavior (verify by asking the model to repeat its instructions).
-- [ ] Tool listing surfaced to the model contains no shell-exec capability.
-- [ ] An invalid API key shows a clear error block, not a crash.
+Done. Highlights:
+
+- `src/main/chat.ts` wraps `sdkQuery()` and streams `SDKMessage`s into `ChatEvent`s.
+- `runStreamingTurn()` coalesces consecutive same-kind tool calls (read/edit/write/search/glob/grep) into a single `win` block with a `paths[]` array. **Bash is never coalesced** — each command is its own terminal-styled window.
+- `listSupportedModels()` calls `Query.supportedModels()` so the picker reflects whatever the locally-installed SDK advertises. Falls back to `LOCAL_MODELS` when unreachable.
+- `api.chat.send(sessionId, userText, turnId)` runs the turn in main and streams over IPC.
+- Session's `sdkSessionId` is captured on `turn-stop` and passed as `resume:` on subsequent sends.
+- Markdown parser (`src/shared/markdown.ts`) handles fenced code, ATX headers, lists, **GFM tables**, paragraphs. Used by both main (canonicalizing SDK text) and renderer (legacy DB rows).
+- Live streaming overlay uses the shared `tool-display.ts` helpers so the in-flight label matches the persisted `win` block.
+- `<EditInstructionsModal>` wired to `api.sessions.updateSystemPrompt()` from the session context menu.
+- Errors surface as inline error blocks in the transcript; the SDK never crashes the renderer.
+
+### Post-M4 polish (already shipped on `master`)
+
+- **History view + soft delete.** `sessions` got a `deleted_at` column. Sidebar has a History view reached from the activity bar's clock icon. Each history row has **Restore** + **trash** (permanent delete with confirm).
+- **Listbox model picker.** Replaced the grouped-by-family model cards with a `/model`-style listbox dropdown.
+- **Sidebar kebab UX.** Kebab swaps in over the timestamp on hover so they don't overlap. Second click closes the menu (`usePopoverClose` takes a `triggerEl` so the trigger doesn't re-open it).
+- **Tool-window compact mode.** `body[data-density="compact"]` selectors shrink padding/typography.
+- **Focus rings inset.** `outline-offset: -2px` so focus on the chat input doesn't bleed into adjacent UI when the user hits capslock.
+- **New session panel portaled.** `createPortal(document.body)`, animates `right: -460px → 0` — eliminates a frame where the panel was outside the viewport and shifted the grid.
+- **Window title is constant.** "AI Work Viewer" (matching `productName` in `package.json`). Active session name lives in the tab + transcript header.
+- **ABI flip-flop fix.** `predev` / `prebuild` npm scripts auto-rebuild `better-sqlite3` for Electron's ABI.
 
 ## M5 — Polish & ship
 
 **Goal:** the app is ready to hand to another developer.
 
-**Tasks**
+Pending tasks (most of the originally-specced M5 still applies, minus the API-key flow that no longer exists):
 
 - Self-host JetBrains Mono and Newsreader fonts; remove any Google Fonts references.
-- Add the usage breakdown popover from `chrome.jsx` (`<UsagePopover>`) with the real-data cost estimate.
-- Keyboard shortcuts: `⌘N` new session, `⌘W` close tab, `⌘1`–`⌘9` jump to tab N, `⌘\\` toggle sidebar, `⌘,` open settings.
-- Accessibility pass: focus rings on every interactive element, ARIA labels on icon-only buttons, tab order audit.
+- Token meter / usage breakdown popover for the status bar (deferred from M1 — see `spec.md` §4.6).
+- Keyboard shortcuts: `⌘N` new session, `⌘1`–`⌘9` jump to tab N, `⌘\` toggle sidebar, `⌘,` open settings. (`⌘W` close tab is already wired.)
+- Accessibility pass: ARIA labels on icon-only buttons audited, tab order audit, focus-ring audit.
 - Package: `electron-builder` configs for macOS (.dmg) and Windows (.exe) installers; code-signing TODO noted.
-- Write a `CONTRIBUTING.md` with the dev/build/test commands.
+- `CONTRIBUTING.md` with dev / build / test commands.
 - Smoke-test on a clean macOS install and a clean Windows install.
 
 **Acceptance**
 
-- [ ] Lighthouse-style accessibility audit: no critical issues.
 - [ ] `npm run package` produces working installers for macOS and Windows.
 - [ ] All keyboard shortcuts behave as specified.
-- [ ] No external network calls except to `api.anthropic.com`.
+- [ ] The only external network call is what the Agent SDK / Claude binary makes — the app itself never reaches out.
+- [ ] No console warnings in dev or production builds.
 
 ## Dependencies & ordering
 
@@ -140,20 +118,16 @@ Five milestones. Each is independently mergeable and leaves the app in a working
 M0 ──> M1 ──> M2 ──> M3 ──> M4 ──> M5
 ```
 
-M3 could technically interleave with M2, but doing M2 first gives us a stable persistence layer to test M3 changes against.
-
-## Estimated effort
+## Effort
 
 Rough order-of-magnitude only (one engineer, full-time):
 
-| Milestone | Days |
-|---|---|
-| M0 | 1-2 |
-| M1 | 4-5 |
-| M2 | 1-2 |
-| M3 | 1 |
-| M4 | 3-4 |
-| M5 | 2-3 |
-| **Total** | **~12-17 days** |
-
-Numbers will shift once we resolve the items in `open-questions.md`.
+| Milestone | Days | Status |
+|---|---|---|
+| M0 | 1-2 | ✅ |
+| M1 | 4-5 | ✅ |
+| M2 | 1-2 | ✅ |
+| M3 | 1 | ✅ |
+| M4 | 3-4 | ✅ (incl. post-M4 polish) |
+| M5 | 2-3 | pending |
+| **Total** | **~12-17 days** | |
