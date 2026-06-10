@@ -180,20 +180,18 @@
   border-radius: 7px;
   background: transparent;
   color: var(--faint);
-  display: grid;
+  display: none;
   place-items: center;
   cursor: pointer;
-  opacity: 0.55;
-  transition: opacity 0.12s;
 }
 
+/* On hover, swap the timestamp out for the 3-dot menu so they don't stack. */
 .session-item:hover .si-menu {
-  opacity: 1;
+  display: grid;
 }
 
-.si-menu:hover {
-  background: color-mix(in oklch, var(--text) 10%, transparent);
-  color: var(--text);
+.session-item:hover .si-time {
+  visibility: hidden;
 }
 
 .si-menu svg {
