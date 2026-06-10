@@ -30,6 +30,9 @@ interface ContextMenuProps {
   onCloseTab(): void;
   onDelete(): void;
   onClose(): void;
+  /** The button that opened the menu. Mousedown on it is ignored so a second
+   *  click on the same button closes the menu instead of immediately reopening it. */
+  triggerEl?: HTMLElement | null;
 }
 
 type ItemIcon = 'pencil' | 'close' | 'trash' | 'sliders';
@@ -42,9 +45,10 @@ export function ContextMenu({
   onCloseTab,
   onDelete,
   onClose,
+  triggerEl,
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  usePopoverClose(ref, onClose);
+  usePopoverClose(ref, onClose, { triggerEl });
 
   const item = (label: string, icon: ItemIcon, onClick: () => void, danger = false) => (
     <button

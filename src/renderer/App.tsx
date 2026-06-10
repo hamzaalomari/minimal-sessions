@@ -74,7 +74,11 @@ export function App() {
 
   const [platform, setPlatform] = useState<Platform | ''>('');
   const [settings, setSettings] = useState<{ anchor: Anchor; trigger: HTMLElement } | null>(null);
-  const [menu, setMenu] = useState<{ id: string; anchor: Anchor } | null>(null);
+  const [menu, setMenu] = useState<{
+    id: string;
+    anchor: Anchor;
+    trigger: HTMLElement;
+  } | null>(null);
   const [editingInstructionsFor, setEditingInstructionsFor] = useState<string | null>(null);
 
   useEffect(() => {
@@ -131,7 +135,13 @@ export function App() {
         }
       />
       <Sidebar
-        onOpenMenu={(id, anchor) => setMenu({ id, anchor: menuAnchor(anchor) })}
+        onOpenMenu={(id, anchor) =>
+          setMenu((current) =>
+            current && current.id === id
+              ? null
+              : { id, anchor: menuAnchor(anchor), trigger: anchor },
+          )
+        }
       />
 
       <main className="main">
@@ -181,6 +191,7 @@ export function App() {
       {menu && (
         <ContextMenu
           anchor={menu.anchor}
+          triggerEl={menu.trigger}
           canCloseTab={openIds.includes(menu.id)}
           onRename={() => startRename(menu.id)}
           onEditInstructions={() => setEditingInstructionsFor(menu.id)}
