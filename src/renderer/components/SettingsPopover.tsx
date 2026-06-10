@@ -11,6 +11,9 @@ interface SettingsPopoverProps {
   onThemeChange(theme: Theme): void;
   onDensityChange(density: Density): void;
   onClose(): void;
+  /** The button that opened the popover. Mousedown on it is ignored by the
+   *  close handler so a second click on it can toggle the popover closed. */
+  triggerEl?: HTMLElement | null;
 }
 
 export function SettingsPopover({
@@ -20,9 +23,10 @@ export function SettingsPopover({
   onThemeChange,
   onDensityChange,
   onClose,
+  triggerEl,
 }: SettingsPopoverProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  usePopoverClose(ref, onClose);
+  usePopoverClose(ref, onClose, { triggerEl });
 
   return (
     <div

@@ -143,13 +143,16 @@ describe('<App />', () => {
     expect(container.querySelector('.app')).toHaveClass('side-collapsed');
   });
 
-  it('settings button opens the settings popover', async () => {
+  it('settings button toggles the popover open and closed', async () => {
     installApi('darwin');
     const user = userEvent.setup();
     render(<App />);
+    const gear = screen.getByRole('button', { name: /^settings$/i });
     expect(screen.queryByTestId('settings-popover')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^settings$/i }));
+    await user.click(gear);
     expect(screen.getByTestId('settings-popover')).toBeInTheDocument();
+    await user.click(gear);
+    expect(screen.queryByTestId('settings-popover')).not.toBeInTheDocument();
   });
 
   it('sidebar kebab opens the context menu for that session', async () => {
