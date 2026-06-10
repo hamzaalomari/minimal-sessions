@@ -70,15 +70,47 @@ function createWindow(): BrowserWindow {
 }
 
 function buildMenu(): Menu {
+  const sendToFocused = (
+    channel: string,
+    ...args: unknown[]
+  ): MenuItemConstructorOptions['click'] =>
+    (_item, focusedWindow) => {
+      if (focusedWindow instanceof BrowserWindow) {
+        focusedWindow.webContents.send(channel, ...args);
+      }
+    };
+
+  const newSessionItem: MenuItemConstructorOptions = {
+    label: 'New Session',
+    accelerator: 'CmdOrCtrl+N',
+    click: sendToFocused('app:request-new-session'),
+  };
   const closeTabItem: MenuItemConstructorOptions = {
     label: 'Close Tab',
     accelerator: 'CmdOrCtrl+W',
-    click: (_item, focusedWindow) => {
-      if (focusedWindow instanceof BrowserWindow) {
-        focusedWindow.webContents.send('app:request-close-tab');
-      }
-    },
+    click: sendToFocused('app:request-close-tab'),
   };
+  const toggleSidebarItem: MenuItemConstructorOptions = {
+    label: 'Toggle Sidebar',
+    accelerator: 'CmdOrCtrl+\\',
+    click: sendToFocused('app:request-toggle-sidebar'),
+  };
+  const preferencesItem: MenuItemConstructorOptions = {
+    label: 'Preferences…',
+    accelerator: 'CmdOrCtrl+,',
+    click: sendToFocused('app:request-open-settings'),
+  };
+  const selectTabItems: MenuItemConstructorOptions[] = Array.from(
+    { length: 9 },
+    (_, i) => {
+      const n = i + 1;
+      return {
+        label: `Tab ${n}`,
+        accelerator: `CmdOrCtrl+${n}`,
+        click: sendToFocused('app:request-select-tab', n),
+      };
+    },
+  );
 
   const template: MenuItemConstructorOptions[] = [
     ...(isMac
@@ -87,6 +119,8 @@ function buildMenu(): Menu {
             label: app.name,
             submenu: [
               { role: 'about' },
+              { type: 'separator' },
+              preferencesItem,
               { type: 'separator' },
               { role: 'services' },
               { type: 'separator' },
@@ -102,8 +136,16 @@ function buildMenu(): Menu {
     {
       label: 'File',
       submenu: [
+        newSessionItem,
+        { type: 'separator' },
         closeTabItem,
         { role: 'close', label: 'Close Window', accelerator: 'Shift+CmdOrCtrl+W' },
+        ...(isMac
+          ? []
+          : ([
+              { type: 'separator' },
+              preferencesItem,
+            ] as MenuItemConstructorOptions[])),
       ],
     },
     {
@@ -121,6 +163,8 @@ function buildMenu(): Menu {
     {
       label: 'View',
       submenu: [
+        toggleSidebarItem,
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },
@@ -137,6 +181,8 @@ function buildMenu(): Menu {
       submenu: [
         { role: 'minimize' },
         { role: 'zoom' },
+        { type: 'separator' },
+        ...selectTabItems,
         ...(isMac
           ? ([{ type: 'separator' }, { role: 'front' }] as MenuItemConstructorOptions[])
           : []),

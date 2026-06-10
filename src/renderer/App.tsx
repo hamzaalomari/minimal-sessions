@@ -89,11 +89,11 @@ export function App() {
     if (!useSessions.getState().hydrated) void useSessions.getState().hydrate();
   }, []);
 
-  // Cmd/Ctrl+W (from the application menu): close the active tab if any,
-  // otherwise fall back to closing the window. Read the latest store state at
-  // event time so the handler stays valid as tabs come and go.
+  // Keyboard shortcuts fired by the native application menu. Each handler reads
+  // the latest store state at event time so it stays valid as tabs / sessions
+  // come and go.
   useEffect(() => {
-    return window.api.app.onRequestCloseTab(() => {
+    const offClose = window.api.app.onRequestCloseTab(() => {
       const state = useSessions.getState();
       if (state.activeId && state.openIds.includes(state.activeId)) {
         state.closeTab(state.activeId);
@@ -101,6 +101,32 @@ export function App() {
         void window.api.app.closeWindow();
       }
     });
+    const offNew = window.api.app.onRequestNewSession(() => {
+      useSessions.getState().setShowNew(true);
+    });
+    const offToggleSide = window.api.app.onRequestToggleSidebar(() => {
+      useSessions.getState().toggleSide();
+    });
+    const offSettings = window.api.app.onRequestOpenSettings(() => {
+      // Re-use the gear button's click handler so the toggle / anchor logic
+      // lives in one place. The button is always rendered in <ActivityBar>.
+      const gear = document.querySelector<HTMLButtonElement>(
+        'button[aria-label="Settings"]',
+      );
+      gear?.click();
+    });
+    const offSelectTab = window.api.app.onRequestSelectTab((n) => {
+      const state = useSessions.getState();
+      const id = state.openIds[n - 1];
+      if (id) state.selectSession(id);
+    });
+    return () => {
+      offClose();
+      offNew();
+      offToggleSide();
+      offSettings();
+      offSelectTab();
+    };
   }, []);
 
   const isMac = platform === 'darwin';

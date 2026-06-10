@@ -65,6 +65,14 @@ export interface Api {
      * tab if any, otherwise fall back to `closeWindow()`.
      */
     onRequestCloseTab(handler: () => void): Unsubscribe;
+    /** Cmd/Ctrl+N — open the new-session panel. */
+    onRequestNewSession(handler: () => void): Unsubscribe;
+    /** Cmd/Ctrl+\\ — collapse/expand the sidebar. */
+    onRequestToggleSidebar(handler: () => void): Unsubscribe;
+    /** Cmd/Ctrl+, — open the settings popover. */
+    onRequestOpenSettings(handler: () => void): Unsubscribe;
+    /** Cmd/Ctrl+1..9 — focus the Nth open tab. Handler is a no-op when out of range. */
+    onRequestSelectTab(handler: (n: number) => void): Unsubscribe;
   };
   fs: {
     /** Native OS folder picker. Resolves to the picked absolute path, or null if cancelled. */

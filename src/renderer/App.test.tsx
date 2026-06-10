@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Api, Platform } from '@shared/api';
@@ -7,10 +7,20 @@ import { SEED_OPEN_IDS, SEED_SESSIONS } from '@shared/seed';
 import { useSessions } from './state/sessions';
 import { useTweaks } from './state/tweaks';
 
-function installApi(
-  platform: Platform = 'darwin',
-): Api & { __fireCloseTab: () => void } {
+interface MenuFiringApi {
+  __fireCloseTab: () => void;
+  __fireNewSession: () => void;
+  __fireToggleSidebar: () => void;
+  __fireOpenSettings: () => void;
+  __fireSelectTab: (n: number) => void;
+}
+
+function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
   let closeTabHandler: (() => void) | null = null;
+  let newSessionHandler: (() => void) | null = null;
+  let toggleSidebarHandler: (() => void) | null = null;
+  let openSettingsHandler: (() => void) | null = null;
+  let selectTabHandler: ((n: number) => void) | null = null;
   const api: Api = {
     app: {
       ping: vi.fn().mockResolvedValue('pong' as const),
@@ -21,6 +31,30 @@ function installApi(
         closeTabHandler = handler;
         return () => {
           closeTabHandler = null;
+        };
+      }),
+      onRequestNewSession: vi.fn((handler: () => void) => {
+        newSessionHandler = handler;
+        return () => {
+          newSessionHandler = null;
+        };
+      }),
+      onRequestToggleSidebar: vi.fn((handler: () => void) => {
+        toggleSidebarHandler = handler;
+        return () => {
+          toggleSidebarHandler = null;
+        };
+      }),
+      onRequestOpenSettings: vi.fn((handler: () => void) => {
+        openSettingsHandler = handler;
+        return () => {
+          openSettingsHandler = null;
+        };
+      }),
+      onRequestSelectTab: vi.fn((handler: (n: number) => void) => {
+        selectTabHandler = handler;
+        return () => {
+          selectTabHandler = null;
         };
       }),
     },
@@ -54,6 +88,10 @@ function installApi(
   (window as unknown as { api: Api }).api = api;
   return Object.assign(api, {
     __fireCloseTab: () => closeTabHandler?.(),
+    __fireNewSession: () => newSessionHandler?.(),
+    __fireToggleSidebar: () => toggleSidebarHandler?.(),
+    __fireOpenSettings: () => openSettingsHandler?.(),
+    __fireSelectTab: (n: number) => selectTabHandler?.(n),
   });
 }
 
@@ -234,6 +272,55 @@ describe('<App />', () => {
     await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
     api.__fireCloseTab();
     expect(api.app.closeWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('Cmd+N (request-new-session) opens the new-session panel', async () => {
+    const api = installApi('darwin');
+    render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    expect(screen.queryByTestId('new-session-panel')).not.toBeInTheDocument();
+    act(() => api.__fireNewSession());
+    expect(screen.getByTestId('new-session-panel')).toBeInTheDocument();
+  });
+
+  it('Cmd+\\ (request-toggle-sidebar) collapses and re-expands the sidebar', async () => {
+    const api = installApi('darwin');
+    const { container } = render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    expect(container.querySelector('.app')).not.toHaveClass('side-collapsed');
+    act(() => api.__fireToggleSidebar());
+    expect(container.querySelector('.app')).toHaveClass('side-collapsed');
+    act(() => api.__fireToggleSidebar());
+    expect(container.querySelector('.app')).not.toHaveClass('side-collapsed');
+  });
+
+  it('Cmd+, (request-open-settings) opens the settings popover', async () => {
+    const api = installApi('darwin');
+    render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    expect(screen.queryByTestId('settings-popover')).not.toBeInTheDocument();
+    act(() => api.__fireOpenSettings());
+    expect(screen.getByTestId('settings-popover')).toBeInTheDocument();
+  });
+
+  it('Cmd+1..9 (request-select-tab) focuses the Nth open tab', async () => {
+    const api = installApi('darwin');
+    render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    const targetId = SEED_OPEN_IDS[1];
+    if (!targetId) throw new Error('SEED_OPEN_IDS needs at least 2 entries for this test');
+    expect(useSessions.getState().activeId).not.toBe(targetId);
+    api.__fireSelectTab(2);
+    expect(useSessions.getState().activeId).toBe(targetId);
+  });
+
+  it('Cmd+N (request-select-tab) with N greater than open tabs is a no-op', async () => {
+    const api = installApi('darwin');
+    render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    const before = useSessions.getState().activeId;
+    api.__fireSelectTab(99);
+    expect(useSessions.getState().activeId).toBe(before);
   });
 
   it('creating a session via the panel adds it to the store and closes the panel', async () => {

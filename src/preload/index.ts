@@ -13,6 +13,26 @@ const api: Api = {
       ipcRenderer.on('app:request-close-tab', listener);
       return () => ipcRenderer.removeListener('app:request-close-tab', listener);
     },
+    onRequestNewSession: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-new-session', listener);
+      return () => ipcRenderer.removeListener('app:request-new-session', listener);
+    },
+    onRequestToggleSidebar: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-toggle-sidebar', listener);
+      return () => ipcRenderer.removeListener('app:request-toggle-sidebar', listener);
+    },
+    onRequestOpenSettings: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-open-settings', listener);
+      return () => ipcRenderer.removeListener('app:request-open-settings', listener);
+    },
+    onRequestSelectTab: (handler) => {
+      const listener = (_e: unknown, n: number): void => handler(n);
+      ipcRenderer.on('app:request-select-tab', listener);
+      return () => ipcRenderer.removeListener('app:request-select-tab', listener);
+    },
   },
   fs: {
     pickDirectory: () => ipcRenderer.invoke('fs:pick-directory'),
