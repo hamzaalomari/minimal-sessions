@@ -77,6 +77,24 @@ describe('<App />', () => {
     await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
   });
 
+  it('renders the transcript for the active session', async () => {
+    installApi('darwin');
+    render(<App />);
+    const active = SEED_SESSIONS.find((s) => s.id === SEED_OPEN_IDS[0])!;
+    expect(screen.getByTestId('transcript')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(active.name);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+  });
+
+  it('shows the empty placeholder when no session is active', async () => {
+    installApi('darwin');
+    useSessions.setState({ activeId: null, openIds: [] });
+    render(<App />);
+    expect(screen.queryByTestId('transcript')).not.toBeInTheDocument();
+    expect(screen.getByText(/pick a session from the sidebar/i)).toBeInTheDocument();
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+  });
+
   it('renders traffic light dots on macOS', async () => {
     installApi('darwin');
     const { container } = render(<App />);

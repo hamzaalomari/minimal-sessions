@@ -1,0 +1,472 @@
+/* Transcript, turns, blocks, code, tool windows, diffs, typing dots.
+ * Ported from the design handoff (Claude Session Viewer.html §transcript).
+ */
+
+.transcript {
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.transcript-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 40px 24px;
+}
+
+/* ───── Session head ───── */
+.session-head {
+  margin-bottom: 34px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sh-name {
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.sh-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  color: var(--faint);
+  font-size: 12.5px;
+}
+
+.sh-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sh-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sh-path {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.sh-mdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* ───── Turn ───── */
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: var(--turn-gap);
+}
+
+.turn-role {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.role-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.role-badge.user {
+  background: var(--user-bg);
+  color: var(--dim);
+}
+
+.role-badge.asst {
+  background: var(--accent);
+  color: #fff;
+}
+
+.role-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.role-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.role-name .role-sub {
+  color: var(--faint);
+  font-weight: 500;
+  margin-left: 7px;
+  font-size: 11.5px;
+}
+
+.turn-body {
+  padding-left: 33px;
+  color: var(--text);
+  font-family: var(--read);
+  font-size: var(--read-size);
+  line-height: var(--read-line);
+}
+
+.turn-body p {
+  margin: 0 0 11px;
+  text-wrap: pretty;
+}
+
+.turn-body p:last-child {
+  margin-bottom: 0;
+}
+
+.turn.user .turn-body {
+  color: var(--dim);
+}
+
+.turn-body ul {
+  margin: 0 0 11px;
+  padding-left: 20px;
+}
+
+.turn-body li {
+  margin: 3px 0;
+}
+
+.turn-body h4 {
+  font-family: var(--ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: var(--text);
+}
+
+.turn-body code.inline {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+/* ───── Code block ───── */
+.code-block {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  margin: 4px 0 13px;
+  overflow: hidden;
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 13px;
+  border-bottom: 1px solid var(--border-soft);
+  font-family: var(--ui);
+  font-size: 11px;
+  color: var(--faint);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.code-body {
+  padding: 12px 15px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text);
+}
+
+.code-body .c-key,
+.tw-code .c-key {
+  color: color-mix(in oklch, var(--accent) 75%, var(--text));
+}
+
+.code-body .c-str,
+.tw-code .c-str {
+  color: #6a9b5c;
+}
+
+body[data-theme='dark'] .code-body .c-str,
+body[data-theme='dark'] .tw-code .c-str {
+  color: #9bc88a;
+}
+
+.code-body .c-com,
+.tw-code .c-com {
+  color: var(--faint);
+  font-style: italic;
+}
+
+/* ───── Tool line (single-line variant) ───── */
+.tool-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 13px;
+  padding: 8px 13px;
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+.tool-line .tl-ico {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+  flex: none;
+}
+
+.tool-line .tl-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tool-line .tl-path {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.tool-line .tl-tag {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #6a9b5c;
+}
+
+body[data-theme='dark'] .tool-line .tl-tag {
+  color: #9bc88a;
+}
+
+/* ───── Tool window (expandable) ───── */
+.toolwin {
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  background: var(--code-bg);
+  margin: 4px 0 13px;
+  overflow: hidden;
+}
+
+.toolwin-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: var(--ui);
+  text-align: left;
+  padding: 9px 13px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.1s;
+}
+
+.toolwin-hd:hover {
+  background: color-mix(in oklch, var(--text) 4%, transparent);
+}
+
+.toolwin-hd:disabled {
+  cursor: default;
+}
+
+.tw-ico {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+  flex: none;
+}
+
+.tw-verb {
+  font-size: 12.5px;
+  font-weight: 600;
+  flex: none;
+}
+
+.tw-path {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tw-tag {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  flex: none;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+.tw-tag.ok {
+  color: #5b9a78;
+  border-color: color-mix(in oklch, #5b9a78 35%, transparent);
+}
+
+body[data-theme='dark'] .tw-tag.ok {
+  color: #9bc88a;
+}
+
+.tw-tag.diff {
+  color: var(--dim);
+}
+
+.tw-chev {
+  width: 15px;
+  height: 15px;
+  color: var(--faint);
+  flex: none;
+  transition: transform 0.16s;
+}
+
+.toolwin.open .tw-chev {
+  transform: rotate(180deg);
+}
+
+.tw-summary {
+  font-family: var(--ui);
+  font-size: 12px;
+  color: var(--dim);
+  padding: 0 13px 9px 38px;
+  margin-top: -3px;
+}
+
+.toolwin-bd {
+  border-top: 1px solid var(--border-soft);
+}
+
+.tw-code,
+.tw-term {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 12px 15px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text);
+}
+
+.tw-term {
+  background: color-mix(in oklch, var(--text) 4%, var(--code-bg));
+}
+
+/* ───── Diff ───── */
+.diff {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.diff-line {
+  display: flex;
+  padding: 0 14px;
+}
+
+.diff-line .diff-gutter {
+  width: 14px;
+  flex: none;
+  color: var(--faint);
+  user-select: none;
+}
+
+.diff-line .diff-text {
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.diff-line.add {
+  background: color-mix(in oklch, #5b9a78 16%, var(--code-bg));
+}
+
+.diff-line.add .diff-gutter {
+  color: #5b9a78;
+}
+
+.diff-line.del {
+  background: color-mix(in oklch, #cc5a44 15%, var(--code-bg));
+}
+
+.diff-line.del .diff-gutter {
+  color: #cc5a44;
+}
+
+body[data-theme='dark'] .diff-line.add {
+  background: color-mix(in oklch, #5b9a78 20%, var(--code-bg));
+}
+
+body[data-theme='dark'] .diff-line.del {
+  background: color-mix(in oklch, #cc5a44 22%, var(--code-bg));
+}
+
+/* ───── Typing indicator ───── */
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+  padding-left: 33px;
+  align-items: center;
+  height: 22px;
+}
+
+.typing-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+  animation: blink 1.2s infinite both;
+}
+
+.typing-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+/* ───── Error block ───── */
+.block-error {
+  margin: 4px 0 13px;
+  padding: 10px 13px;
+  background: color-mix(in oklch, var(--danger) 12%, var(--code-bg));
+  border: 1px solid color-mix(in oklch, var(--danger) 40%, var(--border-soft));
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--danger);
+}

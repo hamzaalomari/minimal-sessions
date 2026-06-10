@@ -6,6 +6,7 @@ import { Icon } from './components/Icon';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { TitleBar } from './components/TitleBar';
+import { Transcript } from './components/Transcript';
 import { useActiveSession, useSessions } from './state/sessions';
 import { useApplyTweaks, useTweaks } from './state/tweaks';
 
@@ -36,12 +37,14 @@ export function App() {
 
       <main className="main">
         <TabBar />
-        <div className="main-placeholder">
-          <strong>M1.1 — chrome</strong>
-          {active
-            ? `Active: ${active.name} (${active.turns.length} turns)`
-            : 'Pick a session from the sidebar.'}
-        </div>
+        {active ? (
+          <Transcript session={active} />
+        ) : (
+          <div className="main-placeholder">
+            <strong>No session</strong>
+            Pick a session from the sidebar.
+          </div>
+        )}
       </main>
 
       <footer className="statusbar">
