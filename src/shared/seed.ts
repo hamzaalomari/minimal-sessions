@@ -39,6 +39,7 @@ export const SEED_SESSIONS: Session[] = [
     createdAt: NOW - 2 * HOUR,
     lastActiveAt: NOW - 2 * MIN,
     tokens: 48_200,
+    sdkSessionId: '',
     turns: [
       U(
         P(
@@ -139,6 +140,7 @@ export const SEED_SESSIONS: Session[] = [
     createdAt: NOW - 3 * HOUR,
     lastActiveAt: NOW - 1 * HOUR,
     tokens: 31_650,
+    sdkSessionId: '',
     turns: [
       U(
         P(
@@ -172,6 +174,7 @@ export const SEED_SESSIONS: Session[] = [
     createdAt: NOW - 2 * DAY,
     lastActiveAt: NOW - 1 * DAY,
     tokens: 12_400,
+    sdkSessionId: '',
     turns: [
       U(
         P(

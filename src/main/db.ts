@@ -4,15 +4,17 @@ import type { Block, Session, SessionId, Turn } from '@shared/types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
-  id            TEXT PRIMARY KEY,
-  name          TEXT NOT NULL,
-  path          TEXT NOT NULL,
-  model         TEXT NOT NULL,
-  system_prompt TEXT NOT NULL DEFAULT '',
-  branch        TEXT NOT NULL DEFAULT '',
-  created_at    INTEGER NOT NULL,
-  last_active   INTEGER NOT NULL,
-  tokens        INTEGER NOT NULL DEFAULT 0
+  id              TEXT PRIMARY KEY,
+  name            TEXT NOT NULL,
+  path            TEXT NOT NULL,
+  model           TEXT NOT NULL,
+  system_prompt   TEXT NOT NULL DEFAULT '',
+  branch          TEXT NOT NULL DEFAULT '',
+  created_at      INTEGER NOT NULL,
+  last_active     INTEGER NOT NULL,
+  tokens          INTEGER NOT NULL DEFAULT 0,
+  sdk_session_id  TEXT NOT NULL DEFAULT '',
+  deleted_at      INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS turns (
@@ -37,6 +39,7 @@ interface SessionRow {
   created_at: number;
   last_active: number;
   tokens: number;
+  sdk_session_id: string;
 }
 
 interface TurnRow {
@@ -60,13 +63,21 @@ export interface CreateSessionInput {
 }
 
 export interface SessionsDb {
-  /** Sessions with their turns embedded (eager join). */
+  /** Active sessions with their turns embedded (eager join). */
   listSessions(): Session[];
+  /** Soft-deleted sessions, most recently deleted first. */
+  listDeletedSessions(): Session[];
   createSession(input: CreateSessionInput): Session;
   renameSession(id: SessionId, name: string): void;
   updateSystemPrompt(id: SessionId, systemPrompt: string): void;
   updateModel(id: SessionId, model: string): void;
   updateBranch(id: SessionId, branch: string): void;
+  updateSdkSessionId(id: SessionId, sdkSessionId: string): void;
+  /** Soft delete — sets deleted_at; turns are preserved. */
+  softDeleteSession(id: SessionId): void;
+  /** Restore a soft-deleted session to active state. */
+  restoreSession(id: SessionId): void;
+  /** Hard delete — cascades to turns. */
   deleteSession(id: SessionId): void;
   /** Turns for a single session, ordered by creation time. */
   listTurns(sessionId: SessionId): Turn[];
@@ -86,6 +97,7 @@ function rowToSession(row: SessionRow, turns: Turn[]): Session {
     createdAt: row.created_at,
     lastActiveAt: row.last_active,
     tokens: row.tokens,
+    sdkSessionId: row.sdk_session_id ?? '',
     turns,
   };
 }
@@ -110,6 +122,10 @@ interface Statements {
   updateSystemPrompt: Statement<[string, string]>;
   updateModel: Statement<[string, string]>;
   updateBranch: Statement<[string, string]>;
+  updateSdkSessionId: Statement<[string, string]>;
+  softDeleteSession: Statement<[number, string]>;
+  restoreSession: Statement<[string]>;
+  listDeletedSessions: Statement<[], SessionRow>;
   deleteSession: Statement<[string]>;
   listTurnsForSession: Statement<[string], TurnRow>;
   listAllTurns: Statement<[], TurnRow>;
@@ -123,10 +139,23 @@ export function openSessionsDb(filename: string): SessionsDb {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  // Idempotent migrations for tables created before this column existed.
+  const cols = db.prepare("PRAGMA table_info(sessions)").all() as Array<{
+    name: string;
+  }>;
+  if (!cols.some((c) => c.name === 'sdk_session_id')) {
+    db.exec("ALTER TABLE sessions ADD COLUMN sdk_session_id TEXT NOT NULL DEFAULT ''");
+  }
+  if (!cols.some((c) => c.name === 'deleted_at')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN deleted_at INTEGER NOT NULL DEFAULT 0');
+  }
 
   const stmts: Statements = {
     listSessions: db.prepare(
-      'SELECT * FROM sessions ORDER BY last_active DESC',
+      'SELECT * FROM sessions WHERE deleted_at = 0 ORDER BY last_active DESC',
+    ) as Statement<[], SessionRow>,
+    listDeletedSessions: db.prepare(
+      'SELECT * FROM sessions WHERE deleted_at != 0 ORDER BY deleted_at DESC',
     ) as Statement<[], SessionRow>,
     insertSession: db.prepare(
       `INSERT INTO sessions
@@ -139,6 +168,15 @@ export function openSessionsDb(filename: string): SessionsDb {
     ),
     updateModel: db.prepare('UPDATE sessions SET model = ? WHERE id = ?'),
     updateBranch: db.prepare('UPDATE sessions SET branch = ? WHERE id = ?'),
+    updateSdkSessionId: db.prepare(
+      'UPDATE sessions SET sdk_session_id = ? WHERE id = ?',
+    ),
+    softDeleteSession: db.prepare(
+      'UPDATE sessions SET deleted_at = ? WHERE id = ?',
+    ),
+    restoreSession: db.prepare(
+      'UPDATE sessions SET deleted_at = 0 WHERE id = ?',
+    ),
     deleteSession: db.prepare('DELETE FROM sessions WHERE id = ?'),
     listTurnsForSession: db.prepare(
       'SELECT * FROM turns WHERE session_id = ? ORDER BY created_at ASC, id ASC',
@@ -173,8 +211,7 @@ export function openSessionsDb(filename: string): SessionsDb {
     },
   );
 
-  function listSessions(): Session[] {
-    const rows = stmts.listSessions.all();
+  function hydrateRows(rows: SessionRow[]): Session[] {
     if (rows.length === 0) return [];
     const turnsBySession = new Map<string, Turn[]>();
     for (const t of stmts.listAllTurns.all()) {
@@ -186,8 +223,17 @@ export function openSessionsDb(filename: string): SessionsDb {
     return rows.map((r) => rowToSession(r, turnsBySession.get(r.id) ?? []));
   }
 
+  function listSessions(): Session[] {
+    return hydrateRows(stmts.listSessions.all());
+  }
+
+  function listDeletedSessions(): Session[] {
+    return hydrateRows(stmts.listDeletedSessions.all());
+  }
+
   return {
     listSessions,
+    listDeletedSessions,
     createSession(input) {
       const now = input.createdAt ?? Date.now();
       const branch = input.branch ?? '';
@@ -214,6 +260,7 @@ export function openSessionsDb(filename: string): SessionsDb {
         createdAt: now,
         lastActiveAt: now,
         tokens,
+        sdkSessionId: '',
         turns: [],
       };
     },
@@ -228,6 +275,15 @@ export function openSessionsDb(filename: string): SessionsDb {
     },
     updateBranch(id, branch) {
       stmts.updateBranch.run(branch, id);
+    },
+    updateSdkSessionId(id, sdkSessionId) {
+      stmts.updateSdkSessionId.run(sdkSessionId, id);
+    },
+    softDeleteSession(id) {
+      stmts.softDeleteSession.run(Date.now(), id);
+    },
+    restoreSession(id) {
+      stmts.restoreSession.run(id);
     },
     deleteSession(id) {
       stmts.deleteSession.run(id);

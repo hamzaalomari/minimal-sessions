@@ -9,6 +9,7 @@
     "src/shared/**/*.ts",
     "src/main/db.ts",
     "src/main/fs.ts",
+    "src/main/chat.ts",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "test/**/*.ts",

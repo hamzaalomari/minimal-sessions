@@ -3,14 +3,20 @@ import { Icon } from './Icon';
 
 interface ActivityBarProps {
   sideOpen: boolean;
+  sidebarView: 'sessions' | 'history';
   onToggleSide(): void;
+  onSelectSessions(): void;
+  onSelectHistory(): void;
   onOpenSettings?(anchor: HTMLElement): void;
   onOpenSearch?(): void;
 }
 
 export function ActivityBar({
   sideOpen,
+  sidebarView,
   onToggleSide,
+  onSelectSessions,
+  onSelectHistory,
   onOpenSettings,
   onOpenSearch,
 }: ActivityBarProps) {
@@ -24,8 +30,16 @@ export function ActivityBar({
         <Icon name="spark" />
       </div>
       <button
-        className={'act-btn' + (sideOpen ? ' on' : '')}
-        onClick={onToggleSide}
+        className={
+          'act-btn' + (sideOpen && sidebarView === 'sessions' ? ' on' : '')
+        }
+        onClick={() => {
+          if (sideOpen && sidebarView === 'sessions') onToggleSide();
+          else {
+            if (!sideOpen) onToggleSide();
+            onSelectSessions();
+          }
+        }}
         title="Sessions"
         aria-label="Toggle sessions sidebar"
       >
@@ -38,6 +52,22 @@ export function ActivityBar({
         onClick={onOpenSearch}
       >
         <Icon name="search" />
+      </button>
+      <button
+        className={
+          'act-btn' + (sideOpen && sidebarView === 'history' ? ' on' : '')
+        }
+        title="History"
+        aria-label="Deleted sessions history"
+        onClick={() => {
+          if (sideOpen && sidebarView === 'history') onToggleSide();
+          else {
+            if (!sideOpen) onToggleSide();
+            onSelectHistory();
+          }
+        }}
+      >
+        <Icon name="clock" />
       </button>
       <div className="act-spacer" />
       <button

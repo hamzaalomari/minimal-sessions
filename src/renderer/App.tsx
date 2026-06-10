@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { Platform } from '@shared/api';
 import { ActivityBar } from './components/ActivityBar';
 import { ContextMenu, type Anchor } from './components/ContextMenu';
+import { EditInstructionsModal } from './components/EditInstructionsModal';
 import { Icon } from './components/Icon';
 import { NewSessionPanel, type NewSessionDraft } from './components/NewSessionPanel';
 import { SessionPane } from './components/SessionPane';
@@ -39,25 +40,33 @@ export function App() {
   const setDensity = useTweaks((s) => s.setDensity);
 
   const {
+    sessions,
+    sidebarView,
     sideOpen,
     showNew,
     toggleSide,
     setShowNew,
+    setSidebarView,
     createSession,
     startRename,
     deleteSession,
     closeTab,
+    updateSystemPrompt,
     openIds,
   } = useSessions(
     useShallow((s) => ({
+      sessions: s.sessions,
+      sidebarView: s.sidebarView,
       sideOpen: s.sideOpen,
       showNew: s.showNew,
       toggleSide: s.toggleSide,
       setShowNew: s.setShowNew,
+      setSidebarView: s.setSidebarView,
       createSession: s.createSession,
       startRename: s.startRename,
       deleteSession: s.deleteSession,
       closeTab: s.closeTab,
+      updateSystemPrompt: s.updateSystemPrompt,
       openIds: s.openIds,
     })),
   );
@@ -66,6 +75,7 @@ export function App() {
   const [platform, setPlatform] = useState<Platform | ''>('');
   const [settings, setSettings] = useState<{ anchor: Anchor; trigger: HTMLElement } | null>(null);
   const [menu, setMenu] = useState<{ id: string; anchor: Anchor } | null>(null);
+  const [editingInstructionsFor, setEditingInstructionsFor] = useState<string | null>(null);
 
   useEffect(() => {
     void window.api.app.platform().then(setPlatform);
@@ -91,6 +101,9 @@ export function App() {
 
   const isMac = platform === 'darwin';
   const title = active ? active.name : 'Claude Session Viewer';
+  const editingSession = editingInstructionsFor
+    ? sessions.find((s) => s.id === editingInstructionsFor) ?? null
+    : null;
 
   const handleCreate = (draft: NewSessionDraft) => {
     createSession({
@@ -107,7 +120,10 @@ export function App() {
       <TitleBar title={title} isMac={isMac} />
       <ActivityBar
         sideOpen={sideOpen}
+        sidebarView={sidebarView}
         onToggleSide={toggleSide}
+        onSelectSessions={() => setSidebarView('sessions')}
+        onSelectHistory={() => setSidebarView('history')}
         onOpenSettings={(el) =>
           setSettings((current) =>
             current ? null : { anchor: leftEdgePopAnchor(el), trigger: el },
@@ -167,11 +183,24 @@ export function App() {
           anchor={menu.anchor}
           canCloseTab={openIds.includes(menu.id)}
           onRename={() => startRename(menu.id)}
+          onEditInstructions={() => setEditingInstructionsFor(menu.id)}
           onCloseTab={() => closeTab(menu.id)}
           onDelete={() => deleteSession(menu.id)}
           onClose={() => setMenu(null)}
         />
       )}
+
+      {editingSession && (
+        <EditInstructionsModal
+          session={editingSession}
+          onClose={() => setEditingInstructionsFor(null)}
+          onSave={(prompt) => {
+            updateSystemPrompt(editingSession.id, prompt);
+            setEditingInstructionsFor(null);
+          }}
+        />
+      )}
+
     </div>
   );
 }

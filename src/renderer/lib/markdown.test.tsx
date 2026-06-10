@@ -38,10 +38,11 @@ describe('renderInline', () => {
     expect(el.textContent).toBe('a then b then c');
   });
 
-  it('leaves unmatched asterisks alone', () => {
+  it('renders single asterisks as italic', () => {
     const el = html(renderInline('not *italic*'));
     expect(el.querySelector('strong')).toBeNull();
-    expect(el.textContent).toBe('not *italic*');
+    expect(el.querySelector('em')?.textContent).toBe('italic');
+    expect(el.textContent).toBe('not italic');
   });
 
   it('returns empty array for empty string', () => {

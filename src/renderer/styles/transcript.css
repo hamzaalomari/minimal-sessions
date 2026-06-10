@@ -159,6 +159,40 @@
   color: var(--text);
 }
 
+.md-table-wrap {
+  margin: 4px 0 14px;
+  overflow-x: auto;
+}
+
+.md-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  overflow: hidden;
+  min-width: 100%;
+}
+
+.md-table th,
+.md-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+  font-family: var(--ui);
+}
+
+.md-table th {
+  background: color-mix(in oklch, var(--text) 3%, transparent);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.md-table tr:last-child td {
+  border-bottom: 0;
+}
+
 .turn-body code.inline {
   font-family: var(--mono);
   font-size: 0.86em;
@@ -380,6 +414,97 @@ body[data-theme='dark'] .tw-tag.ok {
 
 .tw-term {
   background: color-mix(in oklch, var(--text) 4%, var(--code-bg));
+}
+
+/* Bash tool windows look terminal-ish: monospace path, command-style header. */
+.toolwin.bash .tw-ico {
+  color: color-mix(in oklch, var(--accent) 70%, var(--text));
+}
+
+.toolwin.bash .tw-path {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Grouped tool window — file list body. */
+.tw-paths {
+  list-style: none;
+  margin: 0;
+  padding: 10px 15px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.tw-paths li {
+  padding: 3px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ───── Compact density: tighter tool windows + tool lines ───── */
+body[data-density='compact'] .toolwin,
+body[data-density='compact'] .tool-line {
+  border-radius: 8px;
+  margin: 2px 0 8px;
+}
+
+body[data-density='compact'] .toolwin-hd {
+  padding: 5px 10px;
+  gap: 7px;
+}
+
+body[data-density='compact'] .tw-verb {
+  font-size: 11.5px;
+}
+
+body[data-density='compact'] .tw-path {
+  font-size: 10.5px;
+}
+
+body[data-density='compact'] .tw-summary {
+  font-size: 10.5px;
+  padding: 0 10px 6px 32px;
+}
+
+body[data-density='compact'] .tw-ico,
+body[data-density='compact'] .tw-chev {
+  width: 13px;
+  height: 13px;
+}
+
+body[data-density='compact'] .tw-tag {
+  font-size: 10px;
+  padding: 0 5px;
+}
+
+body[data-density='compact'] .tw-paths {
+  padding: 6px 12px;
+  font-size: 11px;
+  max-height: 220px;
+}
+
+body[data-density='compact'] .tw-paths li {
+  padding: 2px 0;
+}
+
+body[data-density='compact'] .tw-code,
+body[data-density='compact'] .tw-term {
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+body[data-density='compact'] .tool-line {
+  padding: 5px 10px;
+  font-size: 11.5px;
 }
 
 /* ───── Diff ───── */

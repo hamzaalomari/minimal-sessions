@@ -82,6 +82,16 @@
   background: var(--hover);
 }
 
+.set-action {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
 .set-label {
   font-size: 13px;
   font-weight: 500;

@@ -56,6 +56,7 @@ export function useApplyTweaks(): void {
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-density', density);
     const r = document.documentElement.style;
     r.setProperty('--accent', accent);
     r.setProperty('--read', readFont === 'serif' ? 'var(--serif)' : 'var(--ui)');

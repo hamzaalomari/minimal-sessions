@@ -29,12 +29,18 @@ function installApi(
       branchFor: vi.fn().mockResolvedValue('main'),
       isReadableDir: vi.fn().mockResolvedValue(true),
     },
+    chat: {
+      send: vi.fn().mockResolvedValue(undefined),
+      onEvent: vi.fn(() => () => {}),
+    },
     sessions: {
       list: vi.fn().mockResolvedValue([]),
+      listDeleted: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue(undefined),
       rename: vi.fn().mockResolvedValue(undefined),
       updateSystemPrompt: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn().mockResolvedValue(undefined),
+      restore: vi.fn().mockResolvedValue(undefined),
     },
     turns: {
       list: vi.fn().mockResolvedValue([]),
@@ -56,13 +62,14 @@ function resetStores() {
   });
   useSessions.setState({
     sessions: [...SEED_SESSIONS],
+    deletedSessions: [],
+    sidebarView: 'sessions',
     openIds: [...SEED_OPEN_IDS],
     activeId: SEED_OPEN_IDS[0] ?? null,
     sideOpen: true,
     showNew: false,
     renamingId: null,
     drafts: {},
-    typing: false,
     hydrated: true,
     home: '/Users/h',
   });

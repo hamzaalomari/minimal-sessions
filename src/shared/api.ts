@@ -5,7 +5,7 @@
  * `ipcMain.handle()` in the main process.
  */
 
-import type { Session, SessionId, Turn } from './types';
+import type { Block, Session, SessionId, Turn } from './types';
 
 export type ModelFamily = 'opus' | 'sonnet' | 'haiku';
 /** A specific model ID the API exposes, e.g. 'claude-sonnet-4-6'. */
@@ -26,6 +26,21 @@ export interface CreateSessionInput {
   branch?: string;
   createdAt?: number;
 }
+
+/** Events streamed back from `api.chat.send()`. */
+export type ChatEvent =
+  | { type: 'turn-start'; turnId: string; modelShort?: string }
+  | { type: 'text-delta'; text: string }
+  | { type: 'tool-start'; toolId: string; name: string; input: unknown }
+  | { type: 'tool-result'; toolId: string; content: string; isError?: boolean }
+  | {
+      type: 'turn-stop';
+      turnId: string;
+      blocks: Block[];
+      addTokens: number;
+      sdkSessionId: string;
+    }
+  | { type: 'error'; message: string };
 
 export interface Api {
   app: {
@@ -52,13 +67,26 @@ export interface Api {
     /** True if `path` is an existing, readable directory. */
     isReadableDir(path: string): Promise<boolean>;
   };
+  chat: {
+    /** Begin a streaming chat turn. The promise resolves on `turn-stop`. */
+    send(sessionId: SessionId, userText: string): Promise<void>;
+    /** Subscribe to chat events for *all* sessions; filter by `sessionId` inside handler. */
+    onEvent(
+      handler: (sessionId: SessionId, event: ChatEvent) => void,
+    ): Unsubscribe;
+  };
   sessions: {
-    /** All sessions with their turns embedded, ordered by most-recently-active. */
+    /** Active (non-deleted) sessions with their turns embedded, ordered by most-recently-active. */
     list(): Promise<Session[]>;
+    /** Soft-deleted sessions, most recently deleted first. */
+    listDeleted(): Promise<Session[]>;
     create(input: CreateSessionInput): Promise<Session>;
     rename(id: SessionId, name: string): Promise<void>;
     updateSystemPrompt(id: SessionId, systemPrompt: string): Promise<void>;
+    /** Soft-delete: moves the session to the history list. Turns are preserved. */
     delete(id: SessionId): Promise<void>;
+    /** Restore a previously soft-deleted session back to active. */
+    restore(id: SessionId): Promise<void>;
   };
   turns: {
     list(sessionId: SessionId): Promise<Turn[]>;

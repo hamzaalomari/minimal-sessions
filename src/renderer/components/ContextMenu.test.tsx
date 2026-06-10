@@ -7,6 +7,7 @@ const baseProps = {
   anchor: { left: 10, top: 20 },
   canCloseTab: true,
   onRename: vi.fn(),
+  onEditInstructions: vi.fn(),
   onCloseTab: vi.fn(),
   onDelete: vi.fn(),
   onClose: vi.fn(),
@@ -32,6 +33,22 @@ describe('<ContextMenu>', () => {
     render(<ContextMenu {...baseProps} onRename={onRename} onClose={onClose} />);
     await user.click(screen.getByRole('button', { name: /rename/i }));
     expect(onRename).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onEditInstructions then onClose when Edit instructions is clicked', async () => {
+    const onEditInstructions = vi.fn();
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ContextMenu
+        {...baseProps}
+        onEditInstructions={onEditInstructions}
+        onClose={onClose}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /edit instructions/i }));
+    expect(onEditInstructions).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

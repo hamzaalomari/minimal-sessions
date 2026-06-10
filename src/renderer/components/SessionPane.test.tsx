@@ -1,22 +1,59 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@shared/types';
+import type { ChatEvent } from '@shared/api';
+import type { Session, SessionId } from '@shared/types';
 import { SessionPane } from './SessionPane';
-import { resetCannedCursor } from '../data/canned';
 import { SEED_OPEN_IDS, SEED_SESSIONS } from '@shared/seed';
 import { useSessions } from '../state/sessions';
+
+type Emit = (sessionId: SessionId, event: ChatEvent) => void;
+
+let emit: Emit | null = null;
+let sendMock: ReturnType<typeof vi.fn>;
+
+function installChatApi() {
+  sendMock = vi.fn().mockResolvedValue(undefined);
+  // Minimal window.api covering only what SessionPane and the store touch.
+  (window as unknown as { api: unknown }).api = {
+    chat: {
+      send: sendMock,
+      onEvent: (handler: Emit) => {
+        emit = handler;
+        return () => {
+          emit = null;
+        };
+      },
+    },
+    sessions: {
+      updateSystemPrompt: vi.fn().mockResolvedValue(undefined),
+      rename: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+      restore: vi.fn().mockResolvedValue(undefined),
+      create: vi.fn().mockResolvedValue(undefined),
+      list: vi.fn().mockResolvedValue([]),
+      listDeleted: vi.fn().mockResolvedValue([]),
+    },
+    turns: {
+      append: vi.fn().mockResolvedValue(undefined),
+      list: vi.fn().mockResolvedValue([]),
+    },
+  };
+}
 
 function resetStore() {
   useSessions.setState({
     sessions: SEED_SESSIONS.map((s) => ({ ...s, turns: [...s.turns] })),
+    deletedSessions: [],
+    sidebarView: 'sessions',
     openIds: [...SEED_OPEN_IDS],
     activeId: SEED_OPEN_IDS[0] ?? null,
     sideOpen: true,
     showNew: false,
     renamingId: null,
     drafts: {},
-    typing: false,
+    hydrated: true,
+    home: '',
   });
 }
 
@@ -27,19 +64,20 @@ function getActive(): Session {
 describe('<SessionPane>', () => {
   beforeEach(() => {
     localStorage.clear();
-    resetCannedCursor();
+    installChatApi();
     resetStore();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    emit = null;
   });
 
   it('shows EmptyState when the active session has no turns', () => {
     const session: Session = { ...getActive(), turns: [] };
     useSessions.setState({
-      sessions: useSessions.getState().sessions.map((s) => (s.id === session.id ? session : s)),
+      sessions: useSessions
+        .getState()
+        .sessions.map((s) => (s.id === session.id ? session : s)),
     });
     render(<SessionPane session={session} />);
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
@@ -60,7 +98,6 @@ describe('<SessionPane>', () => {
   });
 
   it('typing in the composer writes to the per-session draft', async () => {
-    vi.useRealTimers();
     const session = getActive();
     const user = userEvent.setup();
     render(<SessionPane session={session} />);
@@ -69,18 +106,21 @@ describe('<SessionPane>', () => {
   });
 
   it('clicking a suggestion chip fills the draft', async () => {
-    vi.useRealTimers();
     const session: Session = { ...getActive(), turns: [] };
     useSessions.setState({
-      sessions: useSessions.getState().sessions.map((s) => (s.id === session.id ? session : s)),
+      sessions: useSessions
+        .getState()
+        .sessions.map((s) => (s.id === session.id ? session : s)),
     });
     const user = userEvent.setup();
     render(<SessionPane session={session} />);
     await user.click(screen.getByRole('button', { name: /explain the structure/i }));
-    expect(useSessions.getState().drafts[session.id]).toBe('Explain the structure of this codebase');
+    expect(useSessions.getState().drafts[session.id]).toBe(
+      'Explain the structure of this codebase',
+    );
   });
 
-  it('sending appends a user turn, clears the draft, sets typing, then appends an assistant turn', async () => {
+  it('sending appends a user turn, invokes chat.send, and applies streamed assistant turn', async () => {
     const session = getActive();
     const startTurns = session.turns.length;
     useSessions.setState({ drafts: { [session.id]: 'fix the bug' } });
@@ -88,45 +128,90 @@ describe('<SessionPane>', () => {
     render(<SessionPane session={getActive()} />);
     fireEvent.click(screen.getByRole('button', { name: /send message/i }));
 
-    // user turn appended, draft cleared, typing on
+    // user turn appended optimistically, draft cleared, chat.send called
     let state = useSessions.getState();
     let currentSession = state.sessions.find((s) => s.id === session.id)!;
     expect(currentSession.turns).toHaveLength(startTurns + 1);
     expect(currentSession.turns[currentSession.turns.length - 1]?.role).toBe('user');
     expect(state.drafts[session.id]).toBe('');
-    expect(state.typing).toBe(true);
+    expect(sendMock).toHaveBeenCalledWith(session.id, 'fix the bug');
 
-    // after the delay the canned assistant reply lands
-    await vi.advanceTimersByTimeAsync(800);
+    // Stream a turn-start, a couple of deltas, and a turn-stop
+    expect(emit).not.toBeNull();
+    act(() => {
+      emit!(session.id, { type: 'turn-start', turnId: 't-1', modelShort: 'Sonnet' });
+      emit!(session.id, { type: 'text-delta', text: 'Hel' });
+      emit!(session.id, { type: 'text-delta', text: 'lo' });
+      emit!(session.id, {
+        type: 'turn-stop',
+        turnId: 't-1',
+        blocks: [{ type: 'p', text: 'Hello' }],
+        addTokens: 42,
+      });
+    });
+
     state = useSessions.getState();
     currentSession = state.sessions.find((s) => s.id === session.id)!;
     expect(currentSession.turns).toHaveLength(startTurns + 2);
-    expect(currentSession.turns[currentSession.turns.length - 1]?.role).toBe('assistant');
-    expect(state.typing).toBe(false);
+    const last = currentSession.turns[currentSession.turns.length - 1]!;
+    expect(last.role).toBe('assistant');
+    expect(last.blocks[0]).toEqual({ type: 'p', text: 'Hello' });
+    expect(currentSession.tokens).toBe(session.tokens + 42);
+  });
+
+  it('ignores events for other sessions', () => {
+    const session = getActive();
+    useSessions.setState({ drafts: { [session.id]: 'go' } });
+    render(<SessionPane session={getActive()} />);
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    const turnsAfterUser = useSessions
+      .getState()
+      .sessions.find((s) => s.id === session.id)!.turns.length;
+
+    act(() => {
+      emit!('some-other-session', { type: 'turn-start', turnId: 'x' });
+      emit!('some-other-session', {
+        type: 'turn-stop',
+        turnId: 'x',
+        blocks: [{ type: 'p', text: 'wrong' }],
+        addTokens: 0,
+      });
+    });
+
+    const finalTurns = useSessions
+      .getState()
+      .sessions.find((s) => s.id === session.id)!.turns.length;
+    expect(finalTurns).toBe(turnsAfterUser);
   });
 
   it('does not send when the draft is empty', () => {
     const session = getActive();
     const startTurns = session.turns.length;
     render(<SessionPane session={session} />);
-    // send button is disabled when empty — pressing Enter in the textarea should also no-op
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
     const current = useSessions.getState().sessions.find((s) => s.id === session.id)!;
     expect(current.turns).toHaveLength(startTurns);
-    expect(useSessions.getState().typing).toBe(false);
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it('cancels the pending canned reply when unmounted before it fires', async () => {
+  it('renders an error turn when chat.send rejects', async () => {
+    sendMock.mockRejectedValueOnce(new Error('boom'));
     const session = getActive();
-    useSessions.setState({ drafts: { [session.id]: 'will be cancelled' } });
-    const { unmount } = render(<SessionPane session={getActive()} />);
-    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
-    const turnsAfterSend =
-      useSessions.getState().sessions.find((s) => s.id === session.id)!.turns.length;
-    unmount();
-    await vi.advanceTimersByTimeAsync(1000);
-    const finalTurns =
-      useSessions.getState().sessions.find((s) => s.id === session.id)!.turns.length;
-    expect(finalTurns).toBe(turnsAfterSend);
+    const startTurns = session.turns.length;
+    useSessions.setState({ drafts: { [session.id]: 'go' } });
+    render(<SessionPane session={getActive()} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const final = useSessions.getState().sessions.find((s) => s.id === session.id)!;
+    expect(final.turns).toHaveLength(startTurns + 2);
+    const last = final.turns[final.turns.length - 1]!;
+    expect(last.role).toBe('assistant');
+    expect(last.blocks[0]).toMatchObject({ type: 'error', message: 'boom' });
   });
 });
