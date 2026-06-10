@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ModelId, Session, SessionId, Turn } from '@shared/types';
-import { SEED_OPEN_IDS, SEED_SESSIONS } from '../data/seed';
 
 export interface CreateSessionInput {
   name: string;
@@ -12,6 +11,7 @@ export interface CreateSessionInput {
 }
 
 interface SessionsState {
+  /** Loaded from SQLite via window.api on hydrate(). */
   sessions: Session[];
   openIds: SessionId[];
   activeId: SessionId | null;
@@ -20,7 +20,11 @@ interface SessionsState {
   renamingId: SessionId | null;
   drafts: Record<SessionId, string>;
   typing: boolean;
+  /** Set to true once hydrate() has returned (success or failure). */
+  hydrated: boolean;
 
+  /** Load sessions from main-process SQLite. Idempotent. */
+  hydrate(): Promise<void>;
   selectSession(id: SessionId): void;
   closeTab(id: SessionId): void;
   reorderTabs(dragId: SessionId, targetId: SessionId): void;
@@ -37,19 +41,40 @@ interface SessionsState {
 }
 
 const newId = (): string =>
-  globalThis.crypto?.randomUUID?.() ?? `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  globalThis.crypto?.randomUUID?.() ??
+  `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
 export const useSessions = create<SessionsState>()(
   persist(
     (set) => ({
-      sessions: SEED_SESSIONS,
-      openIds: SEED_OPEN_IDS,
-      activeId: SEED_OPEN_IDS[0] ?? null,
+      sessions: [],
+      openIds: [],
+      activeId: null,
       sideOpen: true,
       showNew: false,
       renamingId: null,
       drafts: {},
       typing: false,
+      hydrated: false,
+
+      hydrate: async () => {
+        const sessions = await window.api.sessions.list();
+        set((s) => {
+          // Filter any persisted openIds/activeId against what the DB returned,
+          // so a session deleted out-of-band doesn't leave an orphan tab.
+          const validIds = new Set(sessions.map((x) => x.id));
+          const openIds = s.openIds.filter((id) => validIds.has(id));
+          // First-run UX: nothing open but we have seeded sessions → open the
+          // most-recently-active one. listSessions() is sorted by last_active DESC.
+          const firstRunOpen =
+            openIds.length === 0 && sessions.length > 0 ? [sessions[0]!.id] : openIds;
+          const activeId =
+            s.activeId && validIds.has(s.activeId)
+              ? s.activeId
+              : (firstRunOpen[0] ?? null);
+          return { sessions, openIds: firstRunOpen, activeId, hydrated: true };
+        });
+      },
 
       selectSession: (id) =>
         set((s) => ({
@@ -98,10 +123,24 @@ export const useSessions = create<SessionsState>()(
           activeId: session.id,
           showNew: false,
         }));
+        // Persist asynchronously; the renderer treats local state as authoritative.
+        void window.api?.sessions
+          .create({
+            id: session.id,
+            name,
+            path,
+            model,
+            systemPrompt,
+            branch,
+            createdAt: now,
+          })
+          .catch(() => {
+            /* ignore — tests may stub a partial api */
+          });
         return session;
       },
 
-      deleteSession: (id) =>
+      deleteSession: (id) => {
         set((s) => {
           const sessions = s.sessions.filter((x) => x.id !== id);
           const openIds = s.openIds.filter((x) => x !== id);
@@ -116,13 +155,15 @@ export const useSessions = create<SessionsState>()(
             drafts,
             renamingId: s.renamingId === id ? null : s.renamingId,
           };
-        }),
+        });
+        void window.api?.sessions.delete(id).catch(() => {});
+      },
 
       startRename: (id) => set({ renamingId: id }),
 
-      commitRename: (id, name) =>
+      commitRename: (id, name) => {
+        const trimmed = name?.trim();
         set((s) => {
-          const trimmed = name?.trim();
           if (trimmed) {
             return {
               renamingId: null,
@@ -132,7 +173,11 @@ export const useSessions = create<SessionsState>()(
             };
           }
           return { renamingId: null };
-        }),
+        });
+        if (trimmed) {
+          void window.api?.sessions.rename(id, trimmed).catch(() => {});
+        }
+      },
 
       setSideOpen: (v) => set({ sideOpen: v }),
       toggleSide: () => set((s) => ({ sideOpen: !s.sideOpen })),
@@ -141,7 +186,7 @@ export const useSessions = create<SessionsState>()(
       setDraft: (id, text) => set((s) => ({ drafts: { ...s.drafts, [id]: text } })),
       setTyping: (v) => set({ typing: v }),
 
-      appendTurn: (id, turn, addTokens = 0) =>
+      appendTurn: (id, turn, addTokens = 0) => {
         set((s) => ({
           sessions: s.sessions.map((x) =>
             x.id === id
@@ -153,20 +198,22 @@ export const useSessions = create<SessionsState>()(
                 }
               : x,
           ),
-        })),
+        }));
+        void window.api?.turns.append(id, turn, addTokens).catch(() => {});
+      },
     }),
     {
       name: 'sessions',
-      // Only persist what makes sense to keep across restarts.
-      // Transient UI state (renamingId, showNew, typing) is intentionally excluded.
+      // SQLite is the source of truth for sessions + turns. We only persist the
+      // UI bits that don't belong in the DB so the renderer can paint the same
+      // tabs/sidebar state across launches before hydrate() returns.
       partialize: (s) => ({
-        sessions: s.sessions,
         openIds: s.openIds,
         activeId: s.activeId,
         sideOpen: s.sideOpen,
         drafts: s.drafts,
       }),
-      version: 1,
+      version: 2,
     },
   ),
 );

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { SEED_OPEN_IDS, SEED_SESSIONS } from '../data/seed';
+import { SEED_OPEN_IDS, SEED_SESSIONS } from '@shared/seed';
 import { useSessions } from '../state/sessions';
 import { TabBar } from './TabBar';
 

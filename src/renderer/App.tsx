@@ -71,6 +71,10 @@ export function App() {
     void window.api.app.platform().then(setPlatform);
   }, []);
 
+  useEffect(() => {
+    if (!useSessions.getState().hydrated) void useSessions.getState().hydrate();
+  }, []);
+
   // Cmd/Ctrl+W (from the application menu): close the active tab if any,
   // otherwise fall back to closing the window. Read the latest store state at
   // event time so the handler stays valid as tabs come and go.

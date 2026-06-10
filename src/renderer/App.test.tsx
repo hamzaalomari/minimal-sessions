@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Api, Platform } from '@shared/api';
 import { App } from './App';
-import { SEED_OPEN_IDS, SEED_SESSIONS } from './data/seed';
+import { SEED_OPEN_IDS, SEED_SESSIONS } from '@shared/seed';
 import { useSessions } from './state/sessions';
 import { useTweaks } from './state/tweaks';
 
@@ -22,6 +22,17 @@ function installApi(
           closeTabHandler = null;
         };
       }),
+    },
+    sessions: {
+      list: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue(undefined),
+      rename: vi.fn().mockResolvedValue(undefined),
+      updateSystemPrompt: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+    },
+    turns: {
+      list: vi.fn().mockResolvedValue([]),
+      append: vi.fn().mockResolvedValue(undefined),
     },
   };
   (window as unknown as { api: Api }).api = api;
@@ -46,6 +57,7 @@ function resetStores() {
     renamingId: null,
     drafts: {},
     typing: false,
+    hydrated: true,
   });
 }
 

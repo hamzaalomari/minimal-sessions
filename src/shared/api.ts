@@ -1,9 +1,11 @@
 /**
  * Typed IPC surface exposed on `window.api`.
  *
- * Implemented progressively across the milestones — only the M0 stub is wired
- * for now. Each method maps to an `ipcMain.handle()` in the main process.
+ * Implemented progressively across the milestones. Each method maps to an
+ * `ipcMain.handle()` in the main process.
  */
+
+import type { Session, SessionId, Turn } from './types';
 
 export type ModelFamily = 'opus' | 'sonnet' | 'haiku';
 /** A specific model ID the API exposes, e.g. 'claude-sonnet-4-6'. */
@@ -13,6 +15,17 @@ export type ModelId = string;
 export type Platform = 'darwin' | 'win32' | 'linux' | 'freebsd' | 'openbsd' | 'sunos' | 'aix';
 
 export type Unsubscribe = () => void;
+
+export interface CreateSessionInput {
+  /** Caller-supplied id (renderer-generated UUID) so optimistic UI keeps the same id end-to-end. */
+  id: string;
+  name: string;
+  path: string;
+  model: ModelId;
+  systemPrompt?: string;
+  branch?: string;
+  createdAt?: number;
+}
 
 export interface Api {
   app: {
@@ -28,6 +41,18 @@ export interface Api {
      * tab if any, otherwise fall back to `closeWindow()`.
      */
     onRequestCloseTab(handler: () => void): Unsubscribe;
+  };
+  sessions: {
+    /** All sessions with their turns embedded, ordered by most-recently-active. */
+    list(): Promise<Session[]>;
+    create(input: CreateSessionInput): Promise<Session>;
+    rename(id: SessionId, name: string): Promise<void>;
+    updateSystemPrompt(id: SessionId, systemPrompt: string): Promise<void>;
+    delete(id: SessionId): Promise<void>;
+  };
+  turns: {
+    list(sessionId: SessionId): Promise<Turn[]>;
+    append(sessionId: SessionId, turn: Turn, addTokens?: number): Promise<void>;
   };
 }
 

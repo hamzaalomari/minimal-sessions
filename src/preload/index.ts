@@ -12,6 +12,19 @@ const api: Api = {
       return () => ipcRenderer.removeListener('app:request-close-tab', listener);
     },
   },
+  sessions: {
+    list: () => ipcRenderer.invoke('sessions:list'),
+    create: (input) => ipcRenderer.invoke('sessions:create', input),
+    rename: (id, name) => ipcRenderer.invoke('sessions:rename', id, name),
+    updateSystemPrompt: (id, prompt) =>
+      ipcRenderer.invoke('sessions:update-system-prompt', id, prompt),
+    delete: (id) => ipcRenderer.invoke('sessions:delete', id),
+  },
+  turns: {
+    list: (sessionId) => ipcRenderer.invoke('turns:list', sessionId),
+    append: (sessionId, turn, addTokens) =>
+      ipcRenderer.invoke('turns:append', sessionId, turn, addTokens ?? 0),
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);
