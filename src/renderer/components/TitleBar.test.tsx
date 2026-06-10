@@ -8,14 +8,13 @@ describe('<TitleBar />', () => {
     expect(screen.getByText('My session')).toBeInTheDocument();
   });
 
-  it('renders traffic light dots when isMac is true', () => {
+  it('adds the mac modifier class on macOS so native traffic lights get clearance', () => {
     const { container } = render(<TitleBar title="x" isMac />);
-    expect(container.querySelector('.traffic')).toBeInTheDocument();
-    expect(container.querySelectorAll('.tdot')).toHaveLength(3);
+    expect(container.querySelector('.titlebar')).toHaveClass('mac');
   });
 
-  it('omits traffic lights when isMac is false', () => {
+  it('omits the mac modifier on non-mac platforms', () => {
     const { container } = render(<TitleBar title="x" isMac={false} />);
-    expect(container.querySelector('.traffic')).not.toBeInTheDocument();
+    expect(container.querySelector('.titlebar')).not.toHaveClass('mac');
   });
 });

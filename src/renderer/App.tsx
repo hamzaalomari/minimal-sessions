@@ -13,15 +13,16 @@ import { TitleBar } from './components/TitleBar';
 import { useActiveSession, useSessions } from './state/sessions';
 import { useApplyTweaks, useTweaks } from './state/tweaks';
 
-const SETTINGS_WIDTH = 288;
 const MENU_WIDTH = 172;
 
-function rectAnchor(el: HTMLElement, popoverWidth: number, gap = 6): Anchor {
+/** Anchor a popover next to a chrome button on the left edge (e.g. activity bar's gear).
+ *  Opens to the right of the button and grows upward from the button's bottom edge. */
+function leftEdgePopAnchor(el: HTMLElement, gap = 8): Anchor {
   const r = el.getBoundingClientRect();
-  // Position the popover so its right edge sits near the anchor's right edge,
-  // with a small gap below.
-  const left = Math.max(8, r.right - popoverWidth);
-  return { left, top: r.bottom + gap };
+  return {
+    left: r.right + gap,
+    bottom: window.innerHeight - r.bottom,
+  };
 }
 
 function menuAnchor(el: HTMLElement): Anchor {
@@ -70,6 +71,20 @@ export function App() {
     void window.api.app.platform().then(setPlatform);
   }, []);
 
+  // Cmd/Ctrl+W (from the application menu): close the active tab if any,
+  // otherwise fall back to closing the window. Read the latest store state at
+  // event time so the handler stays valid as tabs come and go.
+  useEffect(() => {
+    return window.api.app.onRequestCloseTab(() => {
+      const state = useSessions.getState();
+      if (state.activeId && state.openIds.includes(state.activeId)) {
+        state.closeTab(state.activeId);
+      } else {
+        void window.api.app.closeWindow();
+      }
+    });
+  }, []);
+
   const isMac = platform === 'darwin';
   const title = active ? active.name : 'Claude Session Viewer';
 
@@ -88,7 +103,7 @@ export function App() {
       <ActivityBar
         sideOpen={sideOpen}
         onToggleSide={toggleSide}
-        onOpenSettings={(el) => setSettingsAnchor(rectAnchor(el, SETTINGS_WIDTH))}
+        onOpenSettings={(el) => setSettingsAnchor(leftEdgePopAnchor(el))}
       />
       <Sidebar
         onOpenMenu={(id, anchor) => setMenu({ id, anchor: menuAnchor(anchor) })}

@@ -12,12 +12,22 @@ export type ModelId = string;
 /** Subset of `NodeJS.Platform` re-declared in plain TS so the renderer doesn't need @types/node. */
 export type Platform = 'darwin' | 'win32' | 'linux' | 'freebsd' | 'openbsd' | 'sunos' | 'aix';
 
+export type Unsubscribe = () => void;
+
 export interface Api {
   app: {
     /** Smoke test — returns 'pong' from main. Used to verify the IPC wiring. */
     ping(): Promise<'pong'>;
     /** Host platform — the renderer uses this to draw traffic lights vs. min/max/close. */
     platform(): Promise<Platform>;
+    /** Ask the main process to close the focused BrowserWindow. */
+    closeWindow(): Promise<void>;
+    /**
+     * Subscribe to "user pressed Cmd+W" (or the platform equivalent), fired
+     * by the application menu. Renderer decides what to do — close an active
+     * tab if any, otherwise fall back to `closeWindow()`.
+     */
+    onRequestCloseTab(handler: () => void): Unsubscribe;
   };
 }
 
