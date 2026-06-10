@@ -98,6 +98,7 @@ export function App() {
       path: draft.path,
       model: draft.model,
       systemPrompt: draft.systemPrompt,
+      branch: draft.branch,
     });
   };
 

@@ -35,12 +35,22 @@ export interface Api {
     platform(): Promise<Platform>;
     /** Ask the main process to close the focused BrowserWindow. */
     closeWindow(): Promise<void>;
+    /** User's home directory, used to tilde-collapse paths for display. */
+    homeDir(): Promise<string>;
     /**
      * Subscribe to "user pressed Cmd+W" (or the platform equivalent), fired
      * by the application menu. Renderer decides what to do — close an active
      * tab if any, otherwise fall back to `closeWindow()`.
      */
     onRequestCloseTab(handler: () => void): Unsubscribe;
+  };
+  fs: {
+    /** Native OS folder picker. Resolves to the picked absolute path, or null if cancelled. */
+    pickDirectory(): Promise<string | null>;
+    /** Reads `.git/HEAD` for `path`. Returns the branch name, short SHA for detached HEAD, or ''. */
+    branchFor(path: string): Promise<string>;
+    /** True if `path` is an existing, readable directory. */
+    isReadableDir(path: string): Promise<boolean>;
   };
   sessions: {
     /** All sessions with their turns embedded, ordered by most-recently-active. */

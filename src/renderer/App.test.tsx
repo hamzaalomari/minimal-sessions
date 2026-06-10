@@ -16,12 +16,18 @@ function installApi(
       ping: vi.fn().mockResolvedValue('pong' as const),
       platform: vi.fn().mockResolvedValue(platform),
       closeWindow: vi.fn().mockResolvedValue(undefined),
+      homeDir: vi.fn().mockResolvedValue('/Users/h'),
       onRequestCloseTab: vi.fn((handler: () => void) => {
         closeTabHandler = handler;
         return () => {
           closeTabHandler = null;
         };
       }),
+    },
+    fs: {
+      pickDirectory: vi.fn().mockResolvedValue('/Users/h/dev/fresh'),
+      branchFor: vi.fn().mockResolvedValue('main'),
+      isReadableDir: vi.fn().mockResolvedValue(true),
     },
     sessions: {
       list: vi.fn().mockResolvedValue([]),
@@ -58,6 +64,7 @@ function resetStores() {
     drafts: {},
     typing: false,
     hydrated: true,
+    home: '/Users/h',
   });
 }
 
@@ -225,12 +232,13 @@ describe('<App />', () => {
     const newBtns = screen.getAllByRole('button', { name: /^new session$/i });
     await user.click(newBtns[0]!);
     await user.click(screen.getByRole('button', { name: /browse/i }));
-    await user.click(screen.getByText('Documents'));
+    await screen.findByText('~/dev/fresh');
     await user.type(screen.getByLabelText(/session name/i), 'fresh start');
     await user.click(screen.getByRole('button', { name: /create session/i }));
     const after = useSessions.getState().sessions;
     expect(after.length).toBe(before + 1);
     expect(after[0]?.name).toBe('fresh start');
+    expect(after[0]?.branch).toBe('main');
     expect(screen.queryByTestId('new-session-panel')).not.toBeInTheDocument();
   });
 });

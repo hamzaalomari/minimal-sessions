@@ -13,6 +13,8 @@ function resetStore() {
     renamingId: null,
     drafts: {},
     typing: false,
+    hydrated: true,
+    home: '',
   });
 }
 
@@ -211,15 +213,17 @@ describe('sessions store', () => {
       };
       (window as unknown as { api: unknown }).api = {
         sessions: { list: vi.fn().mockResolvedValue([remoteSession]) },
+        app: { homeDir: vi.fn().mockResolvedValue('/Users/h') },
       };
       // Start with an unhydrated, empty store so hydrate has work to do.
-      useSessions.setState({ sessions: [], openIds: [], activeId: null, hydrated: false });
+      useSessions.setState({ sessions: [], openIds: [], activeId: null, hydrated: false, home: '' });
 
       await act(() => useSessions.getState().hydrate());
 
       const s = useSessions.getState();
       expect(s.sessions).toEqual([remoteSession]);
       expect(s.hydrated).toBe(true);
+      expect(s.home).toBe('/Users/h');
       // Auto-opens the most recent session when nothing was previously open.
       expect(s.openIds).toEqual(['remote-1']);
       expect(s.activeId).toBe('remote-1');
@@ -231,6 +235,7 @@ describe('sessions store', () => {
       const remoteSession = { ...SEED_SESSIONS[0]!, id: 'still-here' };
       (window as unknown as { api: unknown }).api = {
         sessions: { list: vi.fn().mockResolvedValue([remoteSession]) },
+        app: { homeDir: vi.fn().mockResolvedValue('/Users/h') },
       };
       useSessions.setState({
         sessions: [],
