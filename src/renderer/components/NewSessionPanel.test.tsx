@@ -140,10 +140,9 @@ describe('<NewSessionPanel>', () => {
     render(<NewSessionPanel onClose={() => {}} onCreate={onCreate} />);
     await user.click(screen.getByRole('button', { name: /browse/i }));
     await screen.findByText('~/dev/acme');
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: /model/i }),
-      'claude-opus-4-6',
-    );
+    // Open the model dropdown and pick Opus.
+    await user.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('option', { name: /Claude Opus 4\.6/ }));
     await user.click(screen.getByRole('button', { name: /create session/i }));
     expect(onCreate).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'claude-opus-4-6' }),

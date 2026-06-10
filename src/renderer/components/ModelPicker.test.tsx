@@ -1,41 +1,43 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelPicker } from './ModelPicker';
 
 function installModelsApi(models: { id: string; displayName: string; description: string }[]) {
   (window as unknown as { api: unknown }).api = {
-    models: {
-      list: vi.fn().mockResolvedValue(models),
-    },
+    models: { list: vi.fn().mockResolvedValue(models) },
   };
 }
 
 describe('<ModelPicker>', () => {
-  beforeEach(() => {
-    // Clean state; tests that want the api install it explicitly.
-  });
   afterEach(() => {
     delete (window as unknown as { api?: unknown }).api;
   });
 
-  it('renders a <select> seeded with the local catalog by default', () => {
+  it('shows the current selection in the trigger', () => {
     render(<ModelPicker value="claude-sonnet-4-6" onChange={() => {}} />);
-    const select = screen.getByRole('combobox', { name: /model/i });
-    expect(select).toHaveValue('claude-sonnet-4-6');
-    // Local catalog has at least the three Claude 4.6 / 4.5 models.
-    expect(select.querySelectorAll('option').length).toBeGreaterThanOrEqual(3);
+    const trigger = screen.getByRole('button', { expanded: false });
+    expect(trigger).toHaveTextContent(/Claude Sonnet 4\.6/);
   });
 
-  it('emits onChange with the chosen model id', async () => {
+  it('opens the panel on click and lists the local catalog by default', async () => {
+    const user = userEvent.setup();
+    render(<ModelPicker value="claude-sonnet-4-6" onChange={() => {}} />);
+    await user.click(screen.getByRole('button', { expanded: false }));
+    const options = screen.getAllByRole('option');
+    expect(options.length).toBeGreaterThanOrEqual(3);
+    const selected = options.find((o) => o.getAttribute('aria-selected') === 'true');
+    expect(selected).toHaveTextContent(/Claude Sonnet 4\.6/);
+  });
+
+  it('calls onChange and closes the panel when an option is selected', async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
     render(<ModelPicker value="claude-sonnet-4-6" onChange={onChange} />);
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: /model/i }),
-      'claude-haiku-4-5',
-    );
+    await user.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('option', { name: /Claude Haiku 4\.5/ }));
     expect(onChange).toHaveBeenCalledWith('claude-haiku-4-5');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
   it('replaces the local list with the SDK-supplied models once available', async () => {
@@ -43,34 +45,38 @@ describe('<ModelPicker>', () => {
       { id: 'claude-foo-1', displayName: 'Claude Foo', description: 'one' },
       { id: 'claude-bar-2', displayName: 'Claude Bar', description: 'two' },
     ]);
+    const user = userEvent.setup();
     render(<ModelPicker value="claude-foo-1" onChange={() => {}} />);
-    await waitFor(() => {
-      expect(screen.getByText(/Claude Foo/)).toBeInTheDocument();
-    });
-    expect(screen.getByText(/Claude Bar/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(window.api.models.list).toHaveBeenCalled(),
+    );
+    await user.click(screen.getByRole('button', { expanded: false }));
+    expect(screen.getByRole('option', { name: /Claude Foo/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Claude Bar/ })).toBeInTheDocument();
   });
 
   it('keeps the current value as an option even if the SDK list omits it', async () => {
     installModelsApi([
       { id: 'claude-bar-2', displayName: 'Claude Bar', description: 'two' },
     ]);
+    const user = userEvent.setup();
     render(<ModelPicker value="claude-not-in-list" onChange={() => {}} />);
-    await waitFor(() => {
-      expect(screen.getByText(/Claude Bar/)).toBeInTheDocument();
-    });
-    const select = screen.getByRole('combobox', { name: /model/i });
-    expect(select).toHaveValue('claude-not-in-list');
+    await waitFor(() => expect(window.api.models.list).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { expanded: false }));
+    const selected = screen
+      .getAllByRole('option')
+      .find((o) => o.getAttribute('aria-selected') === 'true');
+    expect(selected).toHaveTextContent('claude-not-in-list');
   });
 
-  it('falls back to local models if the SDK call rejects', async () => {
+  it('renders a footer error when the SDK call rejects', async () => {
     (window as unknown as { api: unknown }).api = {
       models: { list: vi.fn().mockRejectedValue(new Error('boom')) },
     };
+    const user = userEvent.setup();
     render(<ModelPicker value="claude-sonnet-4-6" onChange={() => {}} />);
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument();
-    });
-    const select = screen.getByRole('combobox', { name: /model/i });
-    expect(select.querySelectorAll('option').length).toBeGreaterThanOrEqual(3);
+    await waitFor(() => expect(window.api.models.list).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { expanded: false }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 });

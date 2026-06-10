@@ -243,26 +243,28 @@ body[data-theme='dark'] .ns-scrim {
   cursor: progress;
 }
 
-/* ───── Model dropdown (replaces the old card grid) ───── */
-.model-select-wrap {
+/* ───── Model dropdown ─────
+ * A custom listbox styled after Claude Code's `/model` output:
+ * numbered rows, name + description per row, checkmark on the current. */
+.model-dd {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
-.model-select {
-  appearance: none;
-  -webkit-appearance: none;
+.model-dd-trigger {
   width: 100%;
-  height: 42px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 46px;
+  padding: 8px 36px 8px 13px;
   border: 1px solid var(--border);
   border-radius: 11px;
   background: var(--canvas);
   color: var(--text);
   font-family: var(--ui);
   font-size: 14px;
-  padding: 0 36px 0 13px;
+  text-align: left;
   cursor: pointer;
   outline: none;
   transition:
@@ -270,22 +272,127 @@ body[data-theme='dark'] .ns-scrim {
     box-shadow 0.12s;
 }
 
-.model-select:focus {
-  border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 13%, transparent);
+.model-dd-trigger:hover {
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border));
 }
 
-.model-select-chev {
-  position: absolute;
-  right: 13px;
-  top: 13px;
+.mdd-current {
+  font-weight: 600;
+  grid-column: 1;
+}
+
+.mdd-desc {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.4;
+}
+
+.mdd-chev {
+  grid-column: 2;
+  grid-row: 1;
   width: 16px;
   height: 16px;
-  pointer-events: none;
   color: var(--faint);
 }
 
-.model-select-hint {
+.model-dd-panel {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 10px 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.mdd-hd {
+  padding: 4px 14px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 6px;
+}
+
+.mdd-hd strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mdd-hd span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--faint);
+  line-height: 1.4;
+}
+
+.mdd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mdd-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 8px;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.mdd-item:hover,
+.mdd-item:focus-visible {
+  background: var(--hover);
+}
+
+.mdd-item.sel {
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
+}
+
+.mdd-num {
+  grid-column: 1;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.mdd-name {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.mdd-check {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+}
+
+.mdd-row-desc {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--dim);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+
+.mdd-foot {
+  padding: 8px 14px 0;
   font-size: 11px;
   color: var(--faint);
 }
