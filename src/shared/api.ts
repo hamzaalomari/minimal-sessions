@@ -27,6 +27,13 @@ export interface CreateSessionInput {
   createdAt?: number;
 }
 
+/** A model entry returned by `api.models.list()`. */
+export interface SdkModel {
+  id: string;
+  displayName: string;
+  description: string;
+}
+
 /** Events streamed back from `api.chat.send()`. */
 export type ChatEvent =
   | { type: 'turn-start'; turnId: string; modelShort?: string }
@@ -66,6 +73,10 @@ export interface Api {
     branchFor(path: string): Promise<string>;
     /** True if `path` is an existing, readable directory. */
     isReadableDir(path: string): Promise<boolean>;
+  };
+  models: {
+    /** All models the locally-installed Claude SDK advertises. Cached per session. */
+    list(): Promise<SdkModel[]>;
   };
   chat: {
     /** Begin a streaming chat turn. The promise resolves on `turn-stop`. */

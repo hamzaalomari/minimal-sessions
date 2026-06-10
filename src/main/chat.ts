@@ -271,3 +271,42 @@ function stringifyToolResult(content: unknown): string {
 
 /** Re-export of the real SDK query, kept here so callers (and tests) can swap it. */
 export const realQuery: QueryFn = sdkQuery as unknown as QueryFn;
+
+export interface SdkModel {
+  id: string;
+  displayName: string;
+  description: string;
+}
+
+/**
+ * List the models the locally-installed Claude binary advertises.
+ *
+ * The SDK only exposes `supportedModels()` on a running `Query`, so we start
+ * a streaming-input query that never yields, fetch the list, then abort.
+ */
+export async function listSupportedModels(): Promise<SdkModel[]> {
+  const abort = new AbortController();
+  const inputIter = (async function* () {
+    // Block until the caller aborts; we never feed a real message in.
+    await new Promise<void>((resolve) => {
+      const onAbort = (): void => resolve();
+      abort.signal.addEventListener('abort', onAbort, { once: true });
+    });
+  })();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const q = (sdkQuery as any)({
+    prompt: inputIter,
+    options: { abortController: abort },
+  });
+  try {
+    const models = await q.supportedModels();
+    return models.map((m: { value: string; displayName: string; description: string }) => ({
+      id: m.value,
+      displayName: m.displayName,
+      description: m.description,
+    }));
+  } finally {
+    abort.abort();
+  }
+}

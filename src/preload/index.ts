@@ -19,6 +19,9 @@ const api: Api = {
     branchFor: (path) => ipcRenderer.invoke('fs:branch-for', path),
     isReadableDir: (path) => ipcRenderer.invoke('fs:is-readable-dir', path),
   },
+  models: {
+    list: () => ipcRenderer.invoke('models:list'),
+  },
   chat: {
     send: (sessionId, userText) => {
       const turnId =

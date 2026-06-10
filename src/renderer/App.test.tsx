@@ -29,6 +29,9 @@ function installApi(
       branchFor: vi.fn().mockResolvedValue('main'),
       isReadableDir: vi.fn().mockResolvedValue(true),
     },
+    models: {
+      list: vi.fn().mockResolvedValue([]),
+    },
     chat: {
       send: vi.fn().mockResolvedValue(undefined),
       onEvent: vi.fn(() => () => {}),

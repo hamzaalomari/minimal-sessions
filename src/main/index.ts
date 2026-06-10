@@ -8,13 +8,20 @@ import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, Turn } from '@shared/types';
 import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
 import { branchFor, dirExists } from './fs';
-import { realQuery, runStreamingTurn, type ChatEvent } from './chat';
+import {
+  listSupportedModels,
+  realQuery,
+  runStreamingTurn,
+  type ChatEvent,
+  type SdkModel,
+} from './chat';
 import { SEED_SESSIONS } from '@shared/seed';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isMac = platform === 'darwin';
 
 let sessionsDb: SessionsDb | null = null;
+let modelsCache: SdkModel[] | null = null;
 
 function getDb(): SessionsDb {
   if (!sessionsDb) throw new Error('SessionsDb not initialized');
@@ -164,6 +171,12 @@ function registerIpc(): void {
   });
   ipcMain.handle('fs:branch-for', (_e, path: string) => branchFor(path));
   ipcMain.handle('fs:is-readable-dir', (_e, path: string) => dirExists(path));
+
+  ipcMain.handle('models:list', async () => {
+    if (modelsCache) return modelsCache;
+    modelsCache = await listSupportedModels();
+    return modelsCache;
+  });
 
   ipcMain.handle(
     'chat:send',
