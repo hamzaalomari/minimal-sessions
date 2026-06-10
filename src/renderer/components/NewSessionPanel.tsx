@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ModelId } from '@shared/types';
 import { Icon } from './Icon';
@@ -45,6 +45,17 @@ export function NewSessionPanel({
   const effectiveName = name.trim() || suggested;
   const canCreate = Boolean(path && effectiveName);
   const shownPath = path ? displayPath(path, home) : '';
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const handleBrowse = async () => {
     if (picking) return;

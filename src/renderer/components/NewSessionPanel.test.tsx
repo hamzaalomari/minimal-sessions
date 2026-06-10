@@ -48,6 +48,15 @@ describe('<NewSessionPanel>', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('calls onClose when Escape is pressed', async () => {
+    installFsApi();
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<NewSessionPanel onClose={onClose} onCreate={() => {}} />);
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('calls onClose when the X close button is clicked', async () => {
     installFsApi();
     const onClose = vi.fn();
