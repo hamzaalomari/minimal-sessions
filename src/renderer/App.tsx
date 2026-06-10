@@ -3,10 +3,10 @@ import { useShallow } from 'zustand/react/shallow';
 import type { Platform } from '@shared/api';
 import { ActivityBar } from './components/ActivityBar';
 import { Icon } from './components/Icon';
+import { SessionPane } from './components/SessionPane';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { TitleBar } from './components/TitleBar';
-import { Transcript } from './components/Transcript';
 import { useActiveSession, useSessions } from './state/sessions';
 import { useApplyTweaks, useTweaks } from './state/tweaks';
 
@@ -38,7 +38,7 @@ export function App() {
       <main className="main">
         <TabBar />
         {active ? (
-          <Transcript session={active} />
+          <SessionPane session={active} />
         ) : (
           <div className="main-placeholder">
             <strong>No session</strong>
