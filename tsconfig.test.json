@@ -8,6 +8,7 @@
     "src/renderer/**/*.tsx",
     "src/shared/**/*.ts",
     "src/main/db.ts",
+    "src/main/fs.ts",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "test/**/*.ts",

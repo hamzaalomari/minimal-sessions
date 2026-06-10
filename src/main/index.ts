@@ -1,11 +1,13 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import type { MenuItemConstructorOptions } from 'electron';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { platform } from 'node:process';
 import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, Turn } from '@shared/types';
 import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
+import { branchFor, dirExists } from './fs';
 import { SEED_SESSIONS } from '@shared/seed';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -145,9 +147,21 @@ function buildMenu(): Menu {
 function registerIpc(): void {
   ipcMain.handle('app:ping', () => 'pong' as const);
   ipcMain.handle('app:platform', () => platform as Platform);
+  ipcMain.handle('app:home-dir', () => homedir());
   ipcMain.handle('app:close-window', (e) => {
     BrowserWindow.fromWebContents(e.sender)?.close();
   });
+
+  ipcMain.handle('fs:pick-directory', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const result = win
+      ? await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
+      : await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0] ?? null;
+  });
+  ipcMain.handle('fs:branch-for', (_e, path: string) => branchFor(path));
+  ipcMain.handle('fs:is-readable-dir', (_e, path: string) => dirExists(path));
 
   ipcMain.handle('sessions:list', () => getDb().listSessions());
   ipcMain.handle('sessions:create', (_e, input: CreateSessionInput) =>

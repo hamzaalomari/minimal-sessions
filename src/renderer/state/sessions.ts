@@ -22,6 +22,8 @@ interface SessionsState {
   typing: boolean;
   /** Set to true once hydrate() has returned (success or failure). */
   hydrated: boolean;
+  /** User home directory — for tilde-collapsing displayed paths. Loaded once on hydrate(). */
+  home: string;
 
   /** Load sessions from main-process SQLite. Idempotent. */
   hydrate(): Promise<void>;
@@ -56,9 +58,13 @@ export const useSessions = create<SessionsState>()(
       drafts: {},
       typing: false,
       hydrated: false,
+      home: '',
 
       hydrate: async () => {
-        const sessions = await window.api.sessions.list();
+        const [sessions, home] = await Promise.all([
+          window.api.sessions.list(),
+          window.api.app.homeDir().catch(() => ''),
+        ]);
         set((s) => {
           // Filter any persisted openIds/activeId against what the DB returned,
           // so a session deleted out-of-band doesn't leave an orphan tab.
@@ -72,7 +78,7 @@ export const useSessions = create<SessionsState>()(
             s.activeId && validIds.has(s.activeId)
               ? s.activeId
               : (firstRunOpen[0] ?? null);
-          return { sessions, openIds: firstRunOpen, activeId, hydrated: true };
+          return { sessions, openIds: firstRunOpen, activeId, hydrated: true, home };
         });
       },
 
@@ -223,4 +229,9 @@ export function useActiveSession(): Session | null {
   return useSessions((s) =>
     s.activeId ? (s.sessions.find((x) => x.id === s.activeId) ?? null) : null,
   );
+}
+
+/** Selector — the user's home directory. Used to tilde-collapse displayed paths. */
+export function useHomeDir(): string {
+  return useSessions((s) => s.home);
 }

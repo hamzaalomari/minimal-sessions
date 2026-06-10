@@ -60,6 +60,14 @@
   border-radius: 50%;
 }
 
+.sh-chip-warn {
+  color: var(--accent);
+}
+
+.sh-chip-warn svg {
+  color: var(--accent);
+}
+
 /* ───── Turn ───── */
 .turn {
   display: flex;

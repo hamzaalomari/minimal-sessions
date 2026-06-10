@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import type { ModelId } from '@shared/types';
-import { FolderPicker } from './FolderPicker';
 import { Icon } from './Icon';
 import { ModelPicker } from './ModelPicker';
 import { SystemPromptField } from './SystemPromptField';
+import { useHomeDir } from '../state/sessions';
+import { basename, displayPath } from '../lib/paths';
 
 export interface NewSessionDraft {
   name: string;
   path: string;
+  branch: string;
   model: ModelId;
   systemPrompt: string;
 }
@@ -19,8 +21,8 @@ interface NewSessionPanelProps {
 }
 
 function suggestNameFromPath(path: string): string {
-  if (!path) return '';
-  const leaf = path.split('/').pop() ?? '';
+  const leaf = basename(path);
+  if (!leaf) return '';
   return leaf.replace(/[-_]/g, ' ') + ' session';
 }
 
@@ -29,19 +31,51 @@ export function NewSessionPanel({
   onCreate,
   defaultModel = 'claude-sonnet-4-6',
 }: NewSessionPanelProps) {
+  const home = useHomeDir();
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
+  const [branch, setBranch] = useState('');
   const [model, setModel] = useState<ModelId>(defaultModel);
   const [systemPrompt, setSystemPrompt] = useState('');
-  const [finder, setFinder] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [picking, setPicking] = useState(false);
 
   const suggested = suggestNameFromPath(path);
   const effectiveName = name.trim() || suggested;
   const canCreate = Boolean(path && effectiveName);
+  const shownPath = path ? displayPath(path, home) : '';
+
+  const handleBrowse = async () => {
+    if (picking) return;
+    setPicking(true);
+    setError('');
+    try {
+      const picked = await window.api.fs.pickDirectory();
+      if (!picked) return;
+      const readable = await window.api.fs.isReadableDir(picked);
+      if (!readable) {
+        setError(`Cannot read ${picked}`);
+        return;
+      }
+      setPath(picked);
+      const b = await window.api.fs.branchFor(picked);
+      setBranch(b);
+    } catch {
+      setError('Could not open the folder picker');
+    } finally {
+      setPicking(false);
+    }
+  };
 
   const submit = () => {
     if (!canCreate) return;
-    onCreate({ name: effectiveName, path, model, systemPrompt: systemPrompt.trim() });
+    onCreate({
+      name: effectiveName,
+      path,
+      branch,
+      model,
+      systemPrompt: systemPrompt.trim(),
+    });
   };
 
   return (
@@ -90,16 +124,28 @@ export function NewSessionPanel({
             <div className="browse-row">
               <div className={'path-field' + (path ? '' : ' empty')}>
                 <Icon name="folder" />
-                <span>{path || 'No folder selected'}</span>
+                <span>{shownPath || 'No folder selected'}</span>
+                {branch && (
+                  <span className="path-branch">
+                    <Icon name="branch" />
+                    {branch}
+                  </span>
+                )}
               </div>
               <button
                 type="button"
                 className="browse-btn"
-                onClick={() => setFinder(true)}
+                onClick={handleBrowse}
+                disabled={picking}
               >
                 Browse…
               </button>
             </div>
+            {error && (
+              <div className="ns-error" role="alert">
+                {error}
+              </div>
+            )}
           </div>
 
           <div className="ns-field">
@@ -125,16 +171,6 @@ export function NewSessionPanel({
           </button>
         </div>
       </aside>
-
-      {finder && (
-        <FolderPicker
-          onPick={(p) => {
-            setPath(p);
-            setFinder(false);
-          }}
-          onClose={() => setFinder(false)}
-        />
-      )}
     </>
   );
 }

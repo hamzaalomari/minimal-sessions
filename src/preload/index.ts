@@ -6,11 +6,17 @@ const api: Api = {
     ping: () => ipcRenderer.invoke('app:ping'),
     platform: () => ipcRenderer.invoke('app:platform'),
     closeWindow: () => ipcRenderer.invoke('app:close-window'),
+    homeDir: () => ipcRenderer.invoke('app:home-dir'),
     onRequestCloseTab: (handler) => {
       const listener = (): void => handler();
       ipcRenderer.on('app:request-close-tab', listener);
       return () => ipcRenderer.removeListener('app:request-close-tab', listener);
     },
+  },
+  fs: {
+    pickDirectory: () => ipcRenderer.invoke('fs:pick-directory'),
+    branchFor: (path) => ipcRenderer.invoke('fs:branch-for', path),
+    isReadableDir: (path) => ipcRenderer.invoke('fs:is-readable-dir', path),
   },
   sessions: {
     list: () => ipcRenderer.invoke('sessions:list'),
