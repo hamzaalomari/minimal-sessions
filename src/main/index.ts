@@ -3,10 +3,20 @@ import type { MenuItemConstructorOptions } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { platform } from 'node:process';
-import type { Platform } from '@shared/api';
+import type { CreateSessionInput, Platform } from '@shared/api';
+import type { SessionId, Turn } from '@shared/types';
+import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
+import { SEED_SESSIONS } from '@shared/seed';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isMac = platform === 'darwin';
+
+let sessionsDb: SessionsDb | null = null;
+
+function getDb(): SessionsDb {
+  if (!sessionsDb) throw new Error('SessionsDb not initialized');
+  return sessionsDb;
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -138,9 +148,42 @@ function registerIpc(): void {
   ipcMain.handle('app:close-window', (e) => {
     BrowserWindow.fromWebContents(e.sender)?.close();
   });
+
+  ipcMain.handle('sessions:list', () => getDb().listSessions());
+  ipcMain.handle('sessions:create', (_e, input: CreateSessionInput) =>
+    getDb().createSession({
+      id: input.id,
+      name: input.name,
+      path: input.path,
+      model: input.model,
+      systemPrompt: input.systemPrompt,
+      branch: input.branch,
+      createdAt: input.createdAt,
+    }),
+  );
+  ipcMain.handle('sessions:rename', (_e, id: SessionId, name: string) =>
+    getDb().renameSession(id, name),
+  );
+  ipcMain.handle(
+    'sessions:update-system-prompt',
+    (_e, id: SessionId, systemPrompt: string) =>
+      getDb().updateSystemPrompt(id, systemPrompt),
+  );
+  ipcMain.handle('sessions:delete', (_e, id: SessionId) => getDb().deleteSession(id));
+
+  ipcMain.handle('turns:list', (_e, sessionId: SessionId) =>
+    getDb().listTurns(sessionId),
+  );
+  ipcMain.handle(
+    'turns:append',
+    (_e, sessionId: SessionId, turn: Turn, addTokens?: number) =>
+      getDb().appendTurn(sessionId, turn, addTokens ?? 0),
+  );
 }
 
 app.whenReady().then(() => {
+  sessionsDb = openSessionsDb(join(app.getPath('userData'), 'sessions.db'));
+  seedIfEmpty(sessionsDb, SEED_SESSIONS);
   registerIpc();
   Menu.setApplicationMenu(buildMenu());
   createWindow();
@@ -152,4 +195,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (!isMac) app.quit();
+});
+
+app.on('will-quit', () => {
+  sessionsDb?.close();
+  sessionsDb = null;
 });

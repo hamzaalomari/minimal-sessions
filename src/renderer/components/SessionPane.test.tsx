@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@shared/types';
 import { SessionPane } from './SessionPane';
 import { resetCannedCursor } from '../data/canned';
-import { SEED_OPEN_IDS, SEED_SESSIONS } from '../data/seed';
+import { SEED_OPEN_IDS, SEED_SESSIONS } from '@shared/seed';
 import { useSessions } from '../state/sessions';
 
 function resetStore() {

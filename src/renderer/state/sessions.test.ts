@@ -1,6 +1,6 @@
 import { act } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { SEED_OPEN_IDS, SEED_SESSIONS } from '../data/seed';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SEED_OPEN_IDS, SEED_SESSIONS } from '@shared/seed';
 import { useSessions } from './sessions';
 
 function resetStore() {
@@ -190,6 +190,140 @@ describe('sessions store', () => {
       expect(parsed.state.renamingId).toBeUndefined();
       expect(parsed.state.showNew).toBeUndefined();
       expect(parsed.state.typing).toBeUndefined();
+    });
+
+    it('does NOT persist sessions or turns to localStorage (SQLite owns those)', () => {
+      act(() => useSessions.getState().toggleSide());
+      const parsed = JSON.parse(localStorage.getItem('sessions') as string);
+      expect(parsed.state.sessions).toBeUndefined();
+      // openIds + activeId stay in localStorage so tabs paint instantly on launch.
+      expect(parsed.state.openIds).toBeDefined();
+      expect(parsed.state.activeId).toBeDefined();
+    });
+  });
+
+  describe('hydrate', () => {
+    it('loads sessions from window.api.sessions.list and marks hydrated', async () => {
+      const remoteSession = {
+        ...SEED_SESSIONS[0]!,
+        id: 'remote-1',
+        name: 'from-db',
+      };
+      (window as unknown as { api: unknown }).api = {
+        sessions: { list: vi.fn().mockResolvedValue([remoteSession]) },
+      };
+      // Start with an unhydrated, empty store so hydrate has work to do.
+      useSessions.setState({ sessions: [], openIds: [], activeId: null, hydrated: false });
+
+      await act(() => useSessions.getState().hydrate());
+
+      const s = useSessions.getState();
+      expect(s.sessions).toEqual([remoteSession]);
+      expect(s.hydrated).toBe(true);
+      // Auto-opens the most recent session when nothing was previously open.
+      expect(s.openIds).toEqual(['remote-1']);
+      expect(s.activeId).toBe('remote-1');
+
+      delete (window as unknown as { api?: unknown }).api;
+    });
+
+    it('drops stale openIds + activeId not present in the DB', async () => {
+      const remoteSession = { ...SEED_SESSIONS[0]!, id: 'still-here' };
+      (window as unknown as { api: unknown }).api = {
+        sessions: { list: vi.fn().mockResolvedValue([remoteSession]) },
+      };
+      useSessions.setState({
+        sessions: [],
+        openIds: ['ghost-tab', 'still-here'],
+        activeId: 'ghost-tab',
+        hydrated: false,
+      });
+
+      await act(() => useSessions.getState().hydrate());
+
+      const s = useSessions.getState();
+      expect(s.openIds).toEqual(['still-here']);
+      expect(s.activeId).toBe('still-here');
+
+      delete (window as unknown as { api?: unknown }).api;
+    });
+  });
+
+  describe('IPC persistence', () => {
+    function installApiMocks() {
+      const mocks = {
+        create: vi.fn().mockResolvedValue(undefined),
+        rename: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        append: vi.fn().mockResolvedValue(undefined),
+      };
+      (window as unknown as { api: unknown }).api = {
+        sessions: {
+          list: vi.fn(),
+          create: mocks.create,
+          rename: mocks.rename,
+          updateSystemPrompt: vi.fn(),
+          delete: mocks.delete,
+        },
+        turns: {
+          list: vi.fn(),
+          append: mocks.append,
+        },
+      };
+      return mocks;
+    }
+
+    afterEach(() => {
+      delete (window as unknown as { api?: unknown }).api;
+    });
+
+    it('createSession persists via window.api.sessions.create', () => {
+      const mocks = installApiMocks();
+      act(() => {
+        useSessions.getState().createSession({
+          name: 'persisted',
+          path: '/p',
+          model: 'claude-haiku-4-5',
+        });
+      });
+      expect(mocks.create).toHaveBeenCalledTimes(1);
+      const arg = mocks.create.mock.calls[0]![0];
+      expect(arg).toMatchObject({ name: 'persisted', model: 'claude-haiku-4-5' });
+      expect(typeof arg.id).toBe('string');
+    });
+
+    it('deleteSession persists via window.api.sessions.delete', () => {
+      const mocks = installApiMocks();
+      const id = SEED_OPEN_IDS[0]!;
+      act(() => useSessions.getState().deleteSession(id));
+      expect(mocks.delete).toHaveBeenCalledWith(id);
+    });
+
+    it('commitRename persists when a non-empty name is supplied', () => {
+      const mocks = installApiMocks();
+      const id = SEED_OPEN_IDS[0]!;
+      act(() => useSessions.getState().commitRename(id, '  renamed  '));
+      expect(mocks.rename).toHaveBeenCalledWith(id, 'renamed');
+    });
+
+    it('commitRename does NOT persist when the name is blank', () => {
+      const mocks = installApiMocks();
+      const id = SEED_OPEN_IDS[0]!;
+      act(() => useSessions.getState().commitRename(id, '   '));
+      expect(mocks.rename).not.toHaveBeenCalled();
+    });
+
+    it('appendTurn persists via window.api.turns.append with token delta', () => {
+      const mocks = installApiMocks();
+      const id = SEED_OPEN_IDS[0]!;
+      const turn = {
+        id: 'tx',
+        role: 'user' as const,
+        blocks: [{ type: 'p' as const, text: 'hi' }],
+        createdAt: 123,
+      };
+      act(() => useSessions.getState().appendTurn(id, turn, 42));
+      expect(mocks.append).toHaveBeenCalledWith(id, turn, 42);
     });
   });
 });
