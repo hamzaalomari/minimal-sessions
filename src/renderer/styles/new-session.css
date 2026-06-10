@@ -340,6 +340,25 @@ body[data-theme='dark'] .ns-scrim {
   background: var(--accent);
 }
 
+.model-show-all {
+  margin-top: 10px;
+  width: 100%;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.model-show-all:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
 /* ───── Foot buttons ───── */
 .ns-foot {
   display: flex;
@@ -390,4 +409,109 @@ body[data-theme='dark'] .ns-scrim {
   opacity: 0.45;
   cursor: default;
   filter: none;
+}
+
+/* ───── Modal (api key, edit instructions) ───── */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 16, 8, 0.32);
+  z-index: 80;
+  animation: ns-fade 0.18s ease forwards;
+}
+
+body[data-theme='dark'] .modal-scrim {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 460px;
+  max-width: 92vw;
+  max-height: 90vh;
+  z-index: 81;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-hd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.modal-hd h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.modal-hd p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--faint);
+  line-height: 1.45;
+}
+
+.modal-x {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.modal-x:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.modal-x svg {
+  width: 16px;
+  height: 16px;
+}
+
+.modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+
+.modal-foot {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.modal-help {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+.edit-instructions-ta {
+  height: auto;
+  min-height: 180px;
+  padding: 10px 13px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  resize: vertical;
 }

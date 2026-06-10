@@ -8,13 +8,14 @@ import { Sidebar } from './Sidebar';
 function resetStore() {
   useSessions.setState({
     sessions: [...SEED_SESSIONS],
+    deletedSessions: [],
+    sidebarView: 'sessions',
     openIds: [...SEED_OPEN_IDS],
     activeId: SEED_OPEN_IDS[0] ?? null,
     sideOpen: true,
     showNew: false,
     renamingId: null,
     drafts: {},
-    typing: false,
   });
 }
 
@@ -52,5 +53,25 @@ describe('<Sidebar />', () => {
     render(<Sidebar />);
     await user.click(screen.getByRole('button', { name: /new session/i }));
     expect(useSessions.getState().showNew).toBe(true);
+  });
+
+  it('history view lists deleted sessions and exposes Restore', async () => {
+    const deleted = { ...SEED_SESSIONS[0]!, id: 'gone-1', name: 'gone' };
+    useSessions.setState({ sidebarView: 'history', deletedSessions: [deleted] });
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    expect(screen.getByText('gone')).toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /restore session/i }));
+    const s = useSessions.getState();
+    expect(s.sessions.find((x) => x.id === 'gone-1')).toBeDefined();
+    expect(s.deletedSessions.find((x) => x.id === 'gone-1')).toBeUndefined();
+  });
+
+  it('history view shows a placeholder when empty', () => {
+    useSessions.setState({ sidebarView: 'history', deletedSessions: [] });
+    render(<Sidebar />);
+    expect(screen.getByText(/no deleted sessions/i)).toBeInTheDocument();
   });
 });

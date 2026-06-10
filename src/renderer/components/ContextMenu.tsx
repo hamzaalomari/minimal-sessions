@@ -26,15 +26,19 @@ interface ContextMenuProps {
   anchor: Anchor;
   canCloseTab: boolean;
   onRename(): void;
+  onEditInstructions(): void;
   onCloseTab(): void;
   onDelete(): void;
   onClose(): void;
 }
 
+type ItemIcon = 'pencil' | 'close' | 'trash' | 'sliders';
+
 export function ContextMenu({
   anchor,
   canCloseTab,
   onRename,
+  onEditInstructions,
   onCloseTab,
   onDelete,
   onClose,
@@ -42,7 +46,7 @@ export function ContextMenu({
   const ref = useRef<HTMLDivElement | null>(null);
   usePopoverClose(ref, onClose);
 
-  const item = (label: string, icon: 'pencil' | 'close' | 'trash', onClick: () => void, danger = false) => (
+  const item = (label: string, icon: ItemIcon, onClick: () => void, danger = false) => (
     <button
       type="button"
       className={'ctx-item' + (danger ? ' danger' : '')}
@@ -65,6 +69,7 @@ export function ContextMenu({
       data-testid="context-menu"
     >
       {item('Rename', 'pencil', onRename)}
+      {item('Edit instructions', 'sliders', onEditInstructions)}
       {canCloseTab && item('Close tab', 'close', onCloseTab)}
       <div className="ctx-sep" />
       {item('Delete session', 'trash', onDelete, true)}

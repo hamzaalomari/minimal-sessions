@@ -3,26 +3,56 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ActivityBar } from './ActivityBar';
 
+const noop = () => {};
+
+const base = {
+  sideOpen: true,
+  sidebarView: 'sessions' as const,
+  onToggleSide: noop,
+  onSelectSessions: noop,
+  onSelectHistory: noop,
+};
+
 describe('<ActivityBar />', () => {
-  it('marks the Sessions button "on" when sideOpen is true', () => {
-    render(<ActivityBar sideOpen onToggleSide={() => {}} />);
+  it('marks the Sessions button "on" when sessions view is open', () => {
+    render(<ActivityBar {...base} />);
     const btn = screen.getByRole('button', { name: /toggle sessions sidebar/i });
     expect(btn).toHaveClass('on');
   });
 
-  it('does not mark Sessions "on" when sideOpen is false', () => {
-    render(<ActivityBar sideOpen={false} onToggleSide={() => {}} />);
+  it('does not mark Sessions "on" when history view is open', () => {
+    render(<ActivityBar {...base} sidebarView="history" />);
     expect(
       screen.getByRole('button', { name: /toggle sessions sidebar/i }),
     ).not.toHaveClass('on');
+    expect(
+      screen.getByRole('button', { name: /deleted sessions history/i }),
+    ).toHaveClass('on');
   });
 
-  it('fires onToggleSide when the Sessions button is clicked', async () => {
+  it('clicking Sessions on an open sessions view collapses the side', async () => {
     const onToggleSide = vi.fn();
     const user = userEvent.setup();
-    render(<ActivityBar sideOpen onToggleSide={onToggleSide} />);
+    render(<ActivityBar {...base} onToggleSide={onToggleSide} />);
     await user.click(screen.getByRole('button', { name: /toggle sessions sidebar/i }));
     expect(onToggleSide).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking History switches the view and opens the side if collapsed', async () => {
+    const onToggleSide = vi.fn();
+    const onSelectHistory = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ActivityBar
+        {...base}
+        sideOpen={false}
+        onToggleSide={onToggleSide}
+        onSelectHistory={onSelectHistory}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /deleted sessions history/i }));
+    expect(onToggleSide).toHaveBeenCalledTimes(1);
+    expect(onSelectHistory).toHaveBeenCalledTimes(1);
   });
 
   it('fires onOpenSettings + onOpenSearch when their buttons are clicked', async () => {
@@ -31,8 +61,7 @@ describe('<ActivityBar />', () => {
     const user = userEvent.setup();
     render(
       <ActivityBar
-        sideOpen
-        onToggleSide={() => {}}
+        {...base}
         onOpenSettings={onOpenSettings}
         onOpenSearch={onOpenSearch}
       />,

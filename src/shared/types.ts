@@ -10,18 +10,21 @@ export type ModelId = string;
 
 export type ModelFamily = 'opus' | 'sonnet' | 'haiku';
 
-export type ToolKind = 'read' | 'edit' | 'write' | 'search';
+export type ToolKind = 'read' | 'edit' | 'write' | 'search' | 'bash';
 
 export type Block =
   | { type: 'p'; text: string }
   | { type: 'h'; text: string }
   | { type: 'ul'; items: string[] }
   | { type: 'code'; lang: string; code: string }
+  | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'tool'; label: string; path: string; tag?: string }
   | {
       type: 'win';
       kind: ToolKind;
       path: string;
+      /** When set, this window represents multiple tool calls coalesced into one. */
+      paths?: string[];
       tag?: string;
       summary?: string;
       lang?: string;
@@ -50,5 +53,7 @@ export interface Session {
   createdAt: number;
   lastActiveAt: number;
   tokens: number;
+  /** Claude Agent SDK session id from the most recent turn; '' if not yet started. */
+  sdkSessionId: string;
   turns: Turn[];
 }

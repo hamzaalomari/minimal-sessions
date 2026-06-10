@@ -10,16 +10,21 @@ export interface CreateSessionInput {
   branch?: string;
 }
 
+export type SidebarView = 'sessions' | 'history';
+
 interface SessionsState {
   /** Loaded from SQLite via window.api on hydrate(). */
   sessions: Session[];
+  /** Soft-deleted sessions, surfaced in the History view. */
+  deletedSessions: Session[];
+  /** Which list the sidebar is showing right now. */
+  sidebarView: SidebarView;
   openIds: SessionId[];
   activeId: SessionId | null;
   sideOpen: boolean;
   showNew: boolean;
   renamingId: SessionId | null;
   drafts: Record<SessionId, string>;
-  typing: boolean;
   /** Set to true once hydrate() has returned (success or failure). */
   hydrated: boolean;
   /** User home directory — for tilde-collapsing displayed paths. Loaded once on hydrate(). */
@@ -31,15 +36,21 @@ interface SessionsState {
   closeTab(id: SessionId): void;
   reorderTabs(dragId: SessionId, targetId: SessionId): void;
   createSession(input: CreateSessionInput): Session;
+  /** Soft-delete: removes from sessions + tabs and adds to deletedSessions. */
   deleteSession(id: SessionId): void;
+  /** Bring a soft-deleted session back into sessions. */
+  restoreSession(id: SessionId): void;
+  setSidebarView(view: SidebarView): void;
   startRename(id: SessionId): void;
   commitRename(id: SessionId, name: string | null): void;
   setSideOpen(v: boolean): void;
   toggleSide(): void;
   setShowNew(v: boolean): void;
   setDraft(id: SessionId, text: string): void;
-  setTyping(v: boolean): void;
   appendTurn(id: SessionId, turn: Turn, addTokens?: number): void;
+  updateSystemPrompt(id: SessionId, prompt: string): void;
+  /** Cache the Agent SDK session id locally — persistence happens in main. */
+  setSdkSessionId(id: SessionId, sdkSessionId: string): void;
 }
 
 const newId = (): string =>
@@ -50,19 +61,21 @@ export const useSessions = create<SessionsState>()(
   persist(
     (set) => ({
       sessions: [],
+      deletedSessions: [],
+      sidebarView: 'sessions',
       openIds: [],
       activeId: null,
       sideOpen: true,
       showNew: false,
       renamingId: null,
       drafts: {},
-      typing: false,
       hydrated: false,
       home: '',
 
       hydrate: async () => {
-        const [sessions, home] = await Promise.all([
+        const [sessions, deletedSessions, home] = await Promise.all([
           window.api.sessions.list(),
+          window.api.sessions.listDeleted().catch(() => [] as Session[]),
           window.api.app.homeDir().catch(() => ''),
         ]);
         set((s) => {
@@ -78,7 +91,14 @@ export const useSessions = create<SessionsState>()(
             s.activeId && validIds.has(s.activeId)
               ? s.activeId
               : (firstRunOpen[0] ?? null);
-          return { sessions, openIds: firstRunOpen, activeId, hydrated: true, home };
+          return {
+            sessions,
+            deletedSessions,
+            openIds: firstRunOpen,
+            activeId,
+            hydrated: true,
+            home,
+          };
         });
       },
 
@@ -121,6 +141,7 @@ export const useSessions = create<SessionsState>()(
           createdAt: now,
           lastActiveAt: now,
           tokens: 0,
+          sdkSessionId: '',
           turns: [],
         };
         set((s) => ({
@@ -148,14 +169,20 @@ export const useSessions = create<SessionsState>()(
 
       deleteSession: (id) => {
         set((s) => {
+          const target = s.sessions.find((x) => x.id === id);
           const sessions = s.sessions.filter((x) => x.id !== id);
           const openIds = s.openIds.filter((x) => x !== id);
           const activeId =
             s.activeId === id ? (openIds[openIds.length - 1] ?? null) : s.activeId;
           const { [id]: _omit, ...drafts } = s.drafts;
           void _omit;
+          // Prepend the session to history so the most recent deletion is on top.
+          const deletedSessions = target
+            ? [target, ...s.deletedSessions.filter((x) => x.id !== id)]
+            : s.deletedSessions;
           return {
             sessions,
+            deletedSessions,
             openIds,
             activeId,
             drafts,
@@ -164,6 +191,20 @@ export const useSessions = create<SessionsState>()(
         });
         void window.api?.sessions.delete(id).catch(() => {});
       },
+
+      restoreSession: (id) => {
+        set((s) => {
+          const target = s.deletedSessions.find((x) => x.id === id);
+          if (!target) return {};
+          return {
+            sessions: [target, ...s.sessions.filter((x) => x.id !== id)],
+            deletedSessions: s.deletedSessions.filter((x) => x.id !== id),
+          };
+        });
+        void window.api?.sessions.restore(id).catch(() => {});
+      },
+
+      setSidebarView: (view) => set({ sidebarView: view }),
 
       startRename: (id) => set({ renamingId: id }),
 
@@ -190,7 +231,23 @@ export const useSessions = create<SessionsState>()(
       setShowNew: (v) => set({ showNew: v }),
 
       setDraft: (id, text) => set((s) => ({ drafts: { ...s.drafts, [id]: text } })),
-      setTyping: (v) => set({ typing: v }),
+
+      updateSystemPrompt: (id, prompt) => {
+        set((s) => ({
+          sessions: s.sessions.map((x) =>
+            x.id === id ? { ...x, systemPrompt: prompt } : x,
+          ),
+        }));
+        void window.api?.sessions.updateSystemPrompt(id, prompt).catch(() => {});
+      },
+
+      setSdkSessionId: (id, sdkSessionId) => {
+        set((s) => ({
+          sessions: s.sessions.map((x) =>
+            x.id === id ? { ...x, sdkSessionId } : x,
+          ),
+        }));
+      },
 
       appendTurn: (id, turn, addTokens = 0) => {
         set((s) => ({

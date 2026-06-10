@@ -30,6 +30,7 @@ function seedSession(id = 'sess-1', name = 'demo'): Session {
     createdAt: 1_000_000,
     lastActiveAt: 1_000_000,
     tokens: 0,
+    sdkSessionId: '',
     turns: [],
   };
 }

@@ -11,6 +11,45 @@ describe('<Block>', () => {
     expect(container.querySelector('strong')?.textContent).toBe('bold');
   });
 
+  it('re-parses a p block that contains block-level markdown', () => {
+    const b: BlockT = {
+      type: 'p',
+      text: '### Project\n\n- one\n- two',
+    };
+    const { container } = render(<Block block={b} />);
+    expect(container.querySelector('h4')?.textContent).toBe('Project');
+    expect(container.querySelectorAll('li')).toHaveLength(2);
+  });
+
+  it('renders a GFM table embedded in a p block', () => {
+    const b: BlockT = {
+      type: 'p',
+      text: '| A | B |\n|---|---|\n| 1 | 2 |',
+    };
+    const { container } = render(<Block block={b} />);
+    expect(container.querySelector('table')).not.toBeNull();
+    expect(container.querySelectorAll('th')).toHaveLength(2);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(1);
+  });
+
+  it('renders a table block directly with inline markdown in cells', () => {
+    const b: BlockT = {
+      type: 'table',
+      headers: ['Name', 'Code'],
+      rows: [['**Bob**', '`x()`']],
+    };
+    const { container } = render(<Block block={b} />);
+    expect(container.querySelector('td strong')?.textContent).toBe('Bob');
+    expect(container.querySelector('td code')?.textContent).toBe('x()');
+  });
+
+  it('leaves a plain inline-only p block as a single <p>', () => {
+    const b: BlockT = { type: 'p', text: 'just text with **bold**' };
+    const { container } = render(<Block block={b} />);
+    expect(container.querySelectorAll('h4')).toHaveLength(0);
+    expect(container.querySelectorAll('p')).toHaveLength(1);
+  });
+
   it('renders an h block as <h4>', () => {
     const b: BlockT = { type: 'h', text: 'Section' };
     render(<Block block={b} />);

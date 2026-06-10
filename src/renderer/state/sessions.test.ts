@@ -6,13 +6,14 @@ import { useSessions } from './sessions';
 function resetStore() {
   useSessions.setState({
     sessions: [...SEED_SESSIONS],
+    deletedSessions: [],
+    sidebarView: 'sessions',
     openIds: [...SEED_OPEN_IDS],
     activeId: SEED_OPEN_IDS[0] ?? null,
     sideOpen: true,
     showNew: false,
     renamingId: null,
     drafts: {},
-    typing: false,
     hydrated: true,
     home: '',
   });
@@ -105,15 +106,37 @@ describe('sessions store', () => {
     });
   });
 
-  describe('deleteSession', () => {
-    it('drops the session, its tab, and its draft', () => {
+  describe('deleteSession (soft-delete)', () => {
+    it('drops the tab + draft and moves the session into deletedSessions', () => {
       const id = SEED_OPEN_IDS[0]!;
+      const before = useSessions.getState().sessions.find((x) => x.id === id)!;
       act(() => useSessions.getState().setDraft(id, 'hi'));
       act(() => useSessions.getState().deleteSession(id));
       const s = useSessions.getState();
       expect(s.sessions.find((x) => x.id === id)).toBeUndefined();
+      expect(s.deletedSessions[0]?.id).toBe(before.id);
       expect(s.openIds).not.toContain(id);
       expect(s.drafts[id]).toBeUndefined();
+    });
+  });
+
+  describe('restoreSession', () => {
+    it('moves a deleted session back to the active list', () => {
+      const id = SEED_OPEN_IDS[0]!;
+      act(() => useSessions.getState().deleteSession(id));
+      expect(useSessions.getState().sessions.find((x) => x.id === id)).toBeUndefined();
+      act(() => useSessions.getState().restoreSession(id));
+      const s = useSessions.getState();
+      expect(s.sessions.find((x) => x.id === id)).toBeDefined();
+      expect(s.deletedSessions.find((x) => x.id === id)).toBeUndefined();
+    });
+
+    it('is a no-op when the id is not in the deleted bucket', () => {
+      const before = useSessions.getState();
+      act(() => useSessions.getState().restoreSession('nope'));
+      const after = useSessions.getState();
+      expect(after.sessions).toEqual(before.sessions);
+      expect(after.deletedSessions).toEqual(before.deletedSessions);
     });
   });
 
@@ -212,7 +235,10 @@ describe('sessions store', () => {
         name: 'from-db',
       };
       (window as unknown as { api: unknown }).api = {
-        sessions: { list: vi.fn().mockResolvedValue([remoteSession]) },
+        sessions: {
+          list: vi.fn().mockResolvedValue([remoteSession]),
+          listDeleted: vi.fn().mockResolvedValue([]),
+        },
         app: { homeDir: vi.fn().mockResolvedValue('/Users/h') },
       };
       // Start with an unhydrated, empty store so hydrate has work to do.
@@ -234,7 +260,10 @@ describe('sessions store', () => {
     it('drops stale openIds + activeId not present in the DB', async () => {
       const remoteSession = { ...SEED_SESSIONS[0]!, id: 'still-here' };
       (window as unknown as { api: unknown }).api = {
-        sessions: { list: vi.fn().mockResolvedValue([remoteSession]) },
+        sessions: {
+          list: vi.fn().mockResolvedValue([remoteSession]),
+          listDeleted: vi.fn().mockResolvedValue([]),
+        },
         app: { homeDir: vi.fn().mockResolvedValue('/Users/h') },
       };
       useSessions.setState({
@@ -265,10 +294,12 @@ describe('sessions store', () => {
       (window as unknown as { api: unknown }).api = {
         sessions: {
           list: vi.fn(),
+          listDeleted: vi.fn().mockResolvedValue([]),
           create: mocks.create,
           rename: mocks.rename,
           updateSystemPrompt: vi.fn(),
           delete: mocks.delete,
+          restore: vi.fn().mockResolvedValue(undefined),
         },
         turns: {
           list: vi.fn(),

@@ -8,6 +8,7 @@ import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, Turn } from '@shared/types';
 import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
 import { branchFor, dirExists } from './fs';
+import { realQuery, runStreamingTurn, type ChatEvent } from './chat';
 import { SEED_SESSIONS } from '@shared/seed';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -61,11 +62,6 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-/**
- * Build the application menu. Cmd/Ctrl+W is rebound to send the renderer a
- * "request-close-tab" event; the renderer decides whether to close a tab or
- * fall back to closing the window.
- */
 function buildMenu(): Menu {
   const closeTabItem: MenuItemConstructorOptions = {
     label: 'Close Tab',
@@ -144,6 +140,12 @@ function buildMenu(): Menu {
   return Menu.buildFromTemplate(template);
 }
 
+function emitChatEvent(sessionId: SessionId, event: ChatEvent): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('chat:event', sessionId, event);
+  }
+}
+
 function registerIpc(): void {
   ipcMain.handle('app:ping', () => 'pong' as const);
   ipcMain.handle('app:platform', () => platform as Platform);
@@ -162,6 +164,32 @@ function registerIpc(): void {
   });
   ipcMain.handle('fs:branch-for', (_e, path: string) => branchFor(path));
   ipcMain.handle('fs:is-readable-dir', (_e, path: string) => dirExists(path));
+
+  ipcMain.handle(
+    'chat:send',
+    async (_e, sessionId: SessionId, userText: string, turnId: string) => {
+      const db = getDb();
+      const session = db.listSessions().find((s) => s.id === sessionId);
+      if (!session) throw new Error(`Session not found: ${sessionId}`);
+      await runStreamingTurn(
+        realQuery,
+        {
+          session,
+          userText,
+          ...(session.sdkSessionId
+            ? { resumeSdkSessionId: session.sdkSessionId }
+            : {}),
+        },
+        (event) => {
+          if (event.type === 'turn-stop' && event.sdkSessionId) {
+            db.updateSdkSessionId(sessionId, event.sdkSessionId);
+          }
+          emitChatEvent(sessionId, event);
+        },
+        turnId,
+      );
+    },
+  );
 
   ipcMain.handle('sessions:list', () => getDb().listSessions());
   ipcMain.handle('sessions:create', (_e, input: CreateSessionInput) =>
@@ -183,7 +211,9 @@ function registerIpc(): void {
     (_e, id: SessionId, systemPrompt: string) =>
       getDb().updateSystemPrompt(id, systemPrompt),
   );
-  ipcMain.handle('sessions:delete', (_e, id: SessionId) => getDb().deleteSession(id));
+  ipcMain.handle('sessions:delete', (_e, id: SessionId) => getDb().softDeleteSession(id));
+  ipcMain.handle('sessions:restore', (_e, id: SessionId) => getDb().restoreSession(id));
+  ipcMain.handle('sessions:list-deleted', () => getDb().listDeletedSessions());
 
   ipcMain.handle('turns:list', (_e, sessionId: SessionId) =>
     getDb().listTurns(sessionId),
