@@ -30,6 +30,10 @@
 .app {
   display: grid;
   height: 100vh;
+  /* Contain the new-session panel and other absolute overlays so their
+   * transform-based slide-in can't push html/body horizontally. */
+  position: relative;
+  overflow: hidden;
   grid-template-columns: auto auto 1fr;
   grid-template-rows: auto 1fr auto;
   grid-template-areas:
