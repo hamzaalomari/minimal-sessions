@@ -39,7 +39,7 @@ Done. Highlights:
 
 Done. Highlights:
 
-- `better-sqlite3` with `electron-rebuild`. ABI flip-flop between `npm test` (Node) and `npm run dev` (Electron) is handled by `predev` / `prebuild` hooks (added in M4 polish).
+- `better-sqlite3` with prebuilt binaries via `prebuild-install`. ABI flip-flop between `npm test` (Node) and `npm run dev` (Electron) is handled by `predev` / `prebuild` / `pretest` hooks calling `scripts/rebuild-native.mjs` (M5).
 - Schema in `app.getPath('userData')/sessions.db`.
 - `sessions.*` and `turns.*` IPC methods with prepared statements.
 - Renderer hydrates from main on startup.

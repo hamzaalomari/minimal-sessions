@@ -112,7 +112,7 @@ The status bar is intentionally minimal in v1: it carries the theme toggle. The 
 - **NFR-5. Offline resilience.** Sessions and transcripts remain readable when offline; only sending new messages requires connectivity.
 - **NFR-6. Accessibility.** All interactive elements are keyboard-reachable. Focus rings are inset (`outline-offset: -2px`) so they don't bleed into adjacent content. Full audit pending M5.
 - **NFR-7. Cross-platform.** macOS is first class. Windows is the secondary target. Linux works but is best-effort.
-- **NFR-8. ABI stability.** `predev` / `prebuild` npm hooks run `electron-rebuild -w better-sqlite3` so `npm test` (Node ABI) and `npm run dev` (Electron ABI) don't flip-flop the native binding.
+- **NFR-8. ABI stability.** `predev` / `prebuild` hooks run `scripts/rebuild-native.mjs --runtime=electron` (downloads the prebuilt Electron-ABI binary via `prebuild-install`); the `pretest` hook does the same for the Node ABI via `npm rebuild`. `npm test` and `npm run dev` no longer flip-flop the native binding regardless of order.
 
 ## 6. Out of scope (v1)
 

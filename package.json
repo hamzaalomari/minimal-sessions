@@ -7,18 +7,20 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "predev": "electron-rebuild -w better-sqlite3",
+    "predev": "node scripts/rebuild-native.mjs --runtime=electron",
     "dev": "electron-vite dev",
-    "prebuild": "electron-rebuild -w better-sqlite3",
+    "prebuild": "node scripts/rebuild-native.mjs --runtime=electron",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
+    "pretest": "node scripts/rebuild-native.mjs --runtime=node",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "rebuild:electron": "electron-rebuild -f -w better-sqlite3"
+    "rebuild:electron": "node scripts/rebuild-native.mjs --runtime=electron",
+    "rebuild:node": "node scripts/rebuild-native.mjs --runtime=node"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.170",
@@ -27,7 +29,6 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.4",
     "@eslint/js": "^9.39.4",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/newsreader": "^5.2.10",

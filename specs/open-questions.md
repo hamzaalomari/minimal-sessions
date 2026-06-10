@@ -55,7 +55,7 @@ Items the handoff left ambiguous, plus pivots that surfaced during implementatio
 
 - **Q19. Window title — session name vs. product name.** ✅ **Resolved.** Constant "AI Work Viewer". The active session name lives in the tab and the transcript header. Avoids the OS-level title flicker on every tab switch.
 
-- **Q20. ABI flip-flop between Node and Electron.** ✅ **Resolved.** `predev` / `prebuild` npm hooks run `electron-rebuild -w better-sqlite3` so `npm run dev` always rebuilds the binding for Electron's ABI after a `npm test` run rebuilt it for Node.
+- **Q20. ABI flip-flop between Node and Electron.** ✅ **Resolved (M5 rewrite).** First pass used `@electron/rebuild` in `predev` / `prebuild` hooks, but its `.forge-meta` cache marker treated stale state as authoritative — if the `.node` file was missing or wrong-ABI but the marker matched, the rebuild silently no-op'd and the next `npm run dev` crashed with `NODE_MODULE_VERSION`. Replaced with `scripts/rebuild-native.mjs` which calls `prebuild-install` directly for Electron and delegates to `npm rebuild better-sqlite3` for Node (so its `prebuild-install || node-gyp rebuild` fallback handles patch versions without a published prebuild). `pretest` was also added so test runs auto-restore Node ABI. `@electron/rebuild` removed from dependencies.
 
 - **Q21. New session panel layout shift.** ✅ **Resolved.** Initial implementation animated the panel with `transform: translateX`, which momentarily extended the grid past the viewport and shifted the main pane sideways. Final fix: `createPortal(document.body)` + animate `right: -460px → 0` so the panel is never part of the main grid.
 
