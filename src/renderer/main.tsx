@@ -4,6 +4,7 @@ import { App } from './App';
 import './styles/tokens.css';
 import './styles/app.css';
 import './styles/sidebar.css';
+import './styles/transcript.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root not found');
