@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SEED_OPEN_IDS, SEED_SESSIONS } from '../data/seed';
@@ -61,5 +61,39 @@ describe('<TabBar />', () => {
     render(<TabBar />);
     await user.click(screen.getByRole('button', { name: /^new session$/i }));
     expect(useSessions.getState().showNew).toBe(true);
+  });
+
+  it('marks the dragged tab with .dragging and the target with .drop-target', () => {
+    render(<TabBar />);
+    const [src, dst] = SEED_OPEN_IDS;
+    const srcTab = screen.getByTestId(`tab-${src}`);
+    const dstTab = screen.getByTestId(`tab-${dst}`);
+    fireEvent.dragStart(srcTab);
+    fireEvent.dragOver(dstTab);
+    expect(srcTab.className).toContain('dragging');
+    expect(dstTab.className).toContain('drop-target');
+  });
+
+  it('reorders openIds on drop and clears the drag classes', () => {
+    render(<TabBar />);
+    const [src, dst] = SEED_OPEN_IDS;
+    const srcTab = screen.getByTestId(`tab-${src}`);
+    const dstTab = screen.getByTestId(`tab-${dst}`);
+    fireEvent.dragStart(srcTab);
+    fireEvent.dragOver(dstTab);
+    fireEvent.drop(dstTab);
+    expect(useSessions.getState().openIds[0]).toBe(dst);
+    expect(srcTab.className).not.toContain('dragging');
+    expect(dstTab.className).not.toContain('drop-target');
+  });
+
+  it('clears the dragging class on dragend even when the drop is cancelled', () => {
+    render(<TabBar />);
+    const [src] = SEED_OPEN_IDS;
+    const srcTab = screen.getByTestId(`tab-${src}`);
+    fireEvent.dragStart(srcTab);
+    expect(srcTab.className).toContain('dragging');
+    fireEvent.dragEnd(srcTab);
+    expect(srcTab.className).not.toContain('dragging');
   });
 });
