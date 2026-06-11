@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ModelId, Session, SessionId, Turn } from '@shared/types';
+import type { ModelId, Session, SessionId, TokenUsage, Turn } from '@shared/types';
+import { ZERO_USAGE } from '@shared/types';
 
 export interface CreateSessionInput {
   name: string;
@@ -10,7 +11,7 @@ export interface CreateSessionInput {
   branch?: string;
 }
 
-export type SidebarView = 'sessions' | 'history';
+export type SidebarView = 'sessions' | 'history' | 'search';
 
 interface SessionsState {
   /** Loaded from SQLite via window.api on hydrate(). */
@@ -29,6 +30,8 @@ interface SessionsState {
   hydrated: boolean;
   /** User home directory — for tilde-collapsing displayed paths. Loaded once on hydrate(). */
   home: string;
+  /** Active query in the sidebar Search view. Empty string = no filter. */
+  searchQuery: string;
 
   /** Load sessions from main-process SQLite. Idempotent. */
   hydrate(): Promise<void>;
@@ -43,13 +46,19 @@ interface SessionsState {
   /** Permanently delete a session that was already in the History bucket. */
   purgeSession(id: SessionId): void;
   setSidebarView(view: SidebarView): void;
+  setSearchQuery(q: string): void;
   startRename(id: SessionId): void;
   commitRename(id: SessionId, name: string | null): void;
   setSideOpen(v: boolean): void;
   toggleSide(): void;
   setShowNew(v: boolean): void;
   setDraft(id: SessionId, text: string): void;
-  appendTurn(id: SessionId, turn: Turn, addTokens?: number): void;
+  appendTurn(
+    id: SessionId,
+    turn: Turn,
+    addTokens?: number,
+    addUsage?: TokenUsage,
+  ): void;
   updateSystemPrompt(id: SessionId, prompt: string): void;
   /** Cache the Agent SDK session id locally — persistence happens in main. */
   setSdkSessionId(id: SessionId, sdkSessionId: string): void;
@@ -73,6 +82,7 @@ export const useSessions = create<SessionsState>()(
       drafts: {},
       hydrated: false,
       home: '',
+      searchQuery: '',
 
       hydrate: async () => {
         const [sessions, deletedSessions, home] = await Promise.all([
@@ -143,6 +153,7 @@ export const useSessions = create<SessionsState>()(
           createdAt: now,
           lastActiveAt: now,
           tokens: 0,
+          usage: { ...ZERO_USAGE },
           sdkSessionId: '',
           turns: [],
         };
@@ -214,6 +225,7 @@ export const useSessions = create<SessionsState>()(
       },
 
       setSidebarView: (view) => set({ sidebarView: view }),
+      setSearchQuery: (q) => set({ searchQuery: q }),
 
       startRename: (id) => set({ renamingId: id }),
 
@@ -258,7 +270,8 @@ export const useSessions = create<SessionsState>()(
         }));
       },
 
-      appendTurn: (id, turn, addTokens = 0) => {
+      appendTurn: (id, turn, addTokens = 0, addUsage) => {
+        const usage = addUsage ?? { ...ZERO_USAGE };
         set((s) => ({
           sessions: s.sessions.map((x) =>
             x.id === id
@@ -267,11 +280,17 @@ export const useSessions = create<SessionsState>()(
                   turns: [...x.turns, turn],
                   lastActiveAt: Date.now(),
                   tokens: x.tokens + addTokens,
+                  usage: {
+                    input: x.usage.input + usage.input,
+                    output: x.usage.output + usage.output,
+                    cacheCreation: x.usage.cacheCreation + usage.cacheCreation,
+                    cacheRead: x.usage.cacheRead + usage.cacheRead,
+                  },
                 }
               : x,
           ),
         }));
-        void window.api?.turns.append(id, turn, addTokens).catch(() => {});
+        void window.api?.turns.append(id, turn, addTokens, usage).catch(() => {});
       },
     }),
     {

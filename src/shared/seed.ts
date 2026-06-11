@@ -1,7 +1,14 @@
-import type { Block, Session, Turn } from '@shared/types';
+import type { Block, Session, TokenUsage, Turn } from '@shared/types';
 
 let counter = 0;
 const uid = (): string => `seed-${++counter}-${Math.random().toString(36).slice(2, 7)}`;
+
+/** Split a rough total into a realistic input/output mix (~70% input, 30% output). */
+const splitUsage = (total: number): TokenUsage => {
+  const input = Math.round(total * 0.7);
+  const output = total - input;
+  return { input, output, cacheCreation: 0, cacheRead: 0 };
+};
 
 const P = (text: string): Block => ({ type: 'p', text });
 const H = (text: string): Block => ({ type: 'h', text });
@@ -39,6 +46,7 @@ export const SEED_SESSIONS: Session[] = [
     createdAt: NOW - 2 * HOUR,
     lastActiveAt: NOW - 2 * MIN,
     tokens: 48_200,
+    usage: splitUsage(48_200),
     sdkSessionId: '',
     turns: [
       U(
@@ -140,6 +148,7 @@ export const SEED_SESSIONS: Session[] = [
     createdAt: NOW - 3 * HOUR,
     lastActiveAt: NOW - 1 * HOUR,
     tokens: 31_650,
+    usage: splitUsage(31_650),
     sdkSessionId: '',
     turns: [
       U(
@@ -174,6 +183,7 @@ export const SEED_SESSIONS: Session[] = [
     createdAt: NOW - 2 * DAY,
     lastActiveAt: NOW - 1 * DAY,
     tokens: 12_400,
+    usage: splitUsage(12_400),
     sdkSessionId: '',
     turns: [
       U(

@@ -103,4 +103,79 @@ describe('<Composer>', () => {
     await user.click(screen.getByRole('textbox'));
     expect(box).toHaveClass('focus');
   });
+
+  it('shows the stop button (and hides send) when busy and onStop is provided', () => {
+    render(
+      <Composer
+        session={session}
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        onStop={() => {}}
+        busy
+      />,
+    );
+    expect(screen.getByRole('button', { name: /stop generating/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /send message/i })).toBeNull();
+  });
+
+  it('keeps the disabled send button when busy without onStop', () => {
+    render(<Composer session={session} value="hi" onChange={() => {}} onSend={() => {}} busy />);
+    expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /stop generating/i })).toBeNull();
+  });
+
+  it('calls onStop when the stop button is clicked', async () => {
+    const onStop = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Composer
+        session={session}
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        onStop={onStop}
+        busy
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /stop generating/i }));
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onStop when Escape is pressed while busy', async () => {
+    const onStop = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Composer
+        session={session}
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        onStop={onStop}
+        busy
+      />,
+    );
+    const ta = screen.getByRole('textbox');
+    ta.focus();
+    await user.keyboard('{Escape}');
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call onStop on Escape when not busy', async () => {
+    const onStop = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Composer
+        session={session}
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        onStop={onStop}
+      />,
+    );
+    const ta = screen.getByRole('textbox');
+    ta.focus();
+    await user.keyboard('{Escape}');
+    expect(onStop).not.toHaveBeenCalled();
+  });
 });

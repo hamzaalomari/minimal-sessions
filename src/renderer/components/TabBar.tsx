@@ -76,6 +76,7 @@ export function TabBar() {
             <div
               key={s.id}
               role="tab"
+              tabIndex={0}
               aria-selected={isActive}
               className={
                 'tab' +
@@ -85,6 +86,12 @@ export function TabBar() {
               }
               draggable
               onClick={() => selectSession(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  selectSession(s.id);
+                }
+              }}
               onDragStart={onDragStart(s.id)}
               onDragEnd={onDragEnd}
               onDragOver={onDragOver(s.id)}

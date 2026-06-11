@@ -9,10 +9,19 @@ interface ComposerProps {
   value: string;
   onChange(text: string): void;
   onSend(): void;
+  /** Optional — when provided, the send button becomes a stop button while busy. */
+  onStop?(): void;
   busy?: boolean;
 }
 
-export function Composer({ session, value, onChange, onSend, busy = false }: ComposerProps) {
+export function Composer({
+  session,
+  value,
+  onChange,
+  onSend,
+  onStop,
+  busy = false,
+}: ComposerProps) {
   const [focus, setFocus] = useState(false);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const m = getModel(session.model);
@@ -35,6 +44,11 @@ export function Composer({ session, value, onChange, onSend, busy = false }: Com
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       submit();
+      return;
+    }
+    if (e.key === 'Escape' && busy && onStop) {
+      e.preventDefault();
+      onStop();
     }
   };
 
@@ -65,17 +79,32 @@ export function Composer({ session, value, onChange, onSend, busy = false }: Com
               {short}
             </button>
             <div className="cf-spacer" />
-            <span className="cf-hint">↵ to send · ⇧↵ newline</span>
-            <button
-              type="button"
-              className="send-btn"
-              disabled={!canSend}
-              onClick={submit}
-              title="Send"
-              aria-label="Send message"
-            >
-              <Icon name="send" />
-            </button>
+            <span className="cf-hint">
+              {busy && onStop ? 'Esc or click stop to cancel' : '↵ to send · ⇧↵ newline'}
+            </span>
+            {busy && onStop ? (
+              <button
+                type="button"
+                className="send-btn stop-btn"
+                onClick={onStop}
+                title="Stop"
+                aria-label="Stop generating"
+                data-testid="stop-btn"
+              >
+                <Icon name="stop" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="send-btn"
+                disabled={!canSend}
+                onClick={submit}
+                title="Send"
+                aria-label="Send message"
+              >
+                <Icon name="send" />
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -11,13 +11,16 @@ type Emit = (sessionId: SessionId, event: ChatEvent) => void;
 
 let emit: Emit | null = null;
 let sendMock: ReturnType<typeof vi.fn>;
+let stopMock: ReturnType<typeof vi.fn>;
 
 function installChatApi() {
   sendMock = vi.fn().mockResolvedValue(undefined);
+  stopMock = vi.fn().mockResolvedValue(undefined);
   // Minimal window.api covering only what SessionPane and the store touch.
   (window as unknown as { api: unknown }).api = {
     chat: {
       send: sendMock,
+      stop: stopMock,
       onEvent: (handler: Emit) => {
         emit = handler;
         return () => {
@@ -135,7 +138,7 @@ describe('<SessionPane>', () => {
     expect(currentSession.turns).toHaveLength(startTurns + 1);
     expect(currentSession.turns[currentSession.turns.length - 1]?.role).toBe('user');
     expect(state.drafts[session.id]).toBe('');
-    expect(sendMock).toHaveBeenCalledWith(session.id, 'fix the bug');
+    expect(sendMock).toHaveBeenCalledWith(session.id, 'fix the bug', '');
 
     // Stream a turn-start, a couple of deltas, and a turn-stop
     expect(emit).not.toBeNull();
@@ -194,6 +197,48 @@ describe('<SessionPane>', () => {
     const current = useSessions.getState().sessions.find((s) => s.id === session.id)!;
     expect(current.turns).toHaveLength(startTurns);
     expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('clicking the stop button optimistically finalizes the streaming turn with "Stopped."', async () => {
+    const session = getActive();
+    const startTurns = session.turns.length;
+    useSessions.setState({ drafts: { [session.id]: 'do it' } });
+    render(<SessionPane session={getActive()} />);
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    // Open a stream + stream some partial content.
+    act(() => {
+      emit!(session.id, { type: 'turn-start', turnId: 't-stop', modelShort: 'Sonnet' });
+      emit!(session.id, { type: 'text-delta', text: 'Working on' });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /stop generating/i }));
+    expect(stopMock).toHaveBeenCalledWith(session.id);
+
+    // The assistant turn is appended immediately (user turn + assistant turn = +2).
+    const current = useSessions.getState().sessions.find((s) => s.id === session.id)!;
+    expect(current.turns).toHaveLength(startTurns + 2);
+    const asst = current.turns[current.turns.length - 1]!;
+    expect(asst.role).toBe('assistant');
+    expect(asst.blocks).toEqual([
+      { type: 'p', text: 'Working on' },
+      { type: 'p', text: 'Stopped.' },
+    ]);
+
+    // The eventual late turn-stop must not double-append.
+    act(() => {
+      emit!(session.id, {
+        type: 'turn-stop',
+        turnId: 't-stop',
+        blocks: [{ type: 'p', text: 'Stopped.' }],
+        addTokens: 0,
+        addUsage: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
+        sdkSessionId: 'sdk-late',
+      });
+    });
+    const after = useSessions.getState().sessions.find((s) => s.id === session.id)!;
+    expect(after.turns).toHaveLength(startTurns + 2);
+    expect(after.sdkSessionId).toBe('sdk-late');
   });
 
   it('renders an error turn when chat.send rejects', async () => {

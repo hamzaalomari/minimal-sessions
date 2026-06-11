@@ -10,7 +10,7 @@ Items the handoff left ambiguous, plus pivots that surfaced during implementatio
 
 - **Q3. Tool use scope.** ⚠️ **Reversed during M4.** The original answer was "no shell command execution; v1 tool surface is read/write/list/search only." When we switched to the Agent SDK (Q16), the bundled Claude binary owns its own tool surface, which **includes bash**. The renderer now has a `bash` `ToolKind` with a terminal-styled window. See `spec.md` FR-M4, FR-R8; `design.md` `<ToolWindow>`.
 
-- **Q4. Cost meter accuracy.** ⏳ **Deferred to M5.** The originally-specced per-tier pricing table + usage popover hasn't shipped. The status bar is theme-toggle only in v1. `addTokens` from `result.usage` is already captured per turn; only the rendering is pending.
+- **Q4. Cost meter accuracy.** ✅ **Resolved (M5).** Status bar gained a `<TokenMeter>` pill and `<UsagePopover>` with per-category breakdown (input / output / cache-write / cache-read). Pricing lives in `src/shared/pricing.ts`: Opus $15/$75, Sonnet $3/$15, Haiku $1/$5 per 1M tokens; cache writes at 1.25× input, cache reads at 0.1×. The popover footer flags values as estimates. The renderer falls back to Sonnet pricing for any unknown model id rather than silently zeroing.
 
 - **Q5. Search in the activity bar.** ⏳ **Stubbed.** The button is in the activity bar but doesn't do anything yet. Full-text transcript search remains out of scope.
 

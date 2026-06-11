@@ -85,7 +85,12 @@ The app uses the locally-installed **Claude Agent SDK** for chat, so it inherits
 
 ### 4.6 Status bar
 
-The status bar is intentionally minimal in v1: it carries the theme toggle. The richer token meter + usage breakdown popover described in the original handoff is **deferred to M5+**.
+The status bar carries two controls: the **token meter** (left of the theme toggle) and the theme toggle.
+
+- **FR-B1.** The token meter shows the active session's total tokens (in `K`/`M` form) and an estimated USD cost. Hidden when no session is active.
+- **FR-B2.** Clicking the meter opens a **usage popover** with input / output / cache-write / cache-read rows, each showing tokens and an estimated cost based on the active session's model. The popover header lists the model tier and the per-1M input/output rates used for the estimate.
+- **FR-B3.** Pricing is computed via `src/shared/pricing.ts` — a table keyed by model family (Opus / Sonnet / Haiku) with a Sonnet-tier fallback for unknown ids. Cache writes are billed at 1.25× input, cache reads at 0.1× input. The popover footer notes that values are estimates.
+- **FR-B4.** The session's per-category running totals (`session.usage`) accumulate from each turn's `result.usage` (input/output/cache_creation/cache_read). The legacy `session.tokens` total is the sum.
 
 ### 4.7 New-session panel
 

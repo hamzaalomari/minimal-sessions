@@ -97,11 +97,11 @@ Done. Highlights:
 
 Pending tasks (most of the originally-specced M5 still applies, minus the API-key flow that no longer exists):
 
-- Self-host JetBrains Mono and Newsreader fonts; remove any Google Fonts references.
-- Token meter / usage breakdown popover for the status bar (deferred from M1 — see `spec.md` §4.6).
-- Keyboard shortcuts: `⌘N` new session, `⌘1`–`⌘9` jump to tab N, `⌘\` toggle sidebar, `⌘,` open settings. (`⌘W` close tab is already wired.)
-- Accessibility pass: ARIA labels on icon-only buttons audited, tab order audit, focus-ring audit.
-- Package: `electron-builder` configs for macOS (.dmg) and Windows (.exe) installers; code-signing TODO noted.
+- ✅ Self-host JetBrains Mono and Newsreader fonts via `@fontsource/*`.
+- ✅ Keyboard shortcuts: `⌘N` new session, `⌘1`–`⌘9` jump to tab N, `⌘\` toggle sidebar, `⌘,` open settings, `⌘F` open session search. (`⌘W` close tab was already wired.)
+- ✅ Token meter / usage breakdown popover for the status bar — `sessions.tokens_*` columns persist input/output/cache-write/cache-read; `<TokenMeter>` + `<UsagePopover>` render the breakdown with per-model $/1M rates from `src/shared/pricing.ts`.
+- ✅ Accessibility pass: ARIA labels on icon-only buttons audited (all labeled); tab order + focus rings audited — `SessionItem` rows and `TabBar` tabs are now keyboard-focusable (`tabindex=0`, Enter/Space activates, `:focus-visible` accent ring). Native buttons inherit the global `button:focus-visible` ring from `tokens.css`.
+- ✅ Package: `electron-builder` 26.x wired in. `npm run package` produces installers for the host platform; `npm run package:mac` / `package:win` are explicit. macOS build verified locally — produces `dist/AI Work Viewer-<ver>-<arch>.dmg` and a matching `.zip`. `asarUnpack` keeps `better-sqlite3`'s native binary outside `app.asar` so Electron can `require()` it. **Open TODOs:** (1) code signing — `mac.identity` is set to `null` (skip) and Windows has no signing config; production builds need an Apple Developer ID + Windows Authenticode cert. (2) App icons — currently using the default Electron icon (warning logged at build time). (3) Cross-arch builds — the better-sqlite3 prebuild is host-arch only, so x64 Mac and Windows builds need to run on a matching host or in CI.
 - `CONTRIBUTING.md` with dev / build / test commands.
 - Smoke-test on a clean macOS install and a clean Windows install.
 

@@ -13,6 +13,7 @@ interface MenuFiringApi {
   __fireToggleSidebar: () => void;
   __fireOpenSettings: () => void;
   __fireSelectTab: (n: number) => void;
+  __fireOpenSearch: () => void;
 }
 
 function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
@@ -21,6 +22,7 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
   let toggleSidebarHandler: (() => void) | null = null;
   let openSettingsHandler: (() => void) | null = null;
   let selectTabHandler: ((n: number) => void) | null = null;
+  let openSearchHandler: (() => void) | null = null;
   const api: Api = {
     app: {
       ping: vi.fn().mockResolvedValue('pong' as const),
@@ -55,6 +57,12 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
         selectTabHandler = handler;
         return () => {
           selectTabHandler = null;
+        };
+      }),
+      onRequestOpenSearch: vi.fn((handler: () => void) => {
+        openSearchHandler = handler;
+        return () => {
+          openSearchHandler = null;
         };
       }),
     },
@@ -92,6 +100,7 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
     __fireToggleSidebar: () => toggleSidebarHandler?.(),
     __fireOpenSettings: () => openSettingsHandler?.(),
     __fireSelectTab: (n: number) => selectTabHandler?.(n),
+    __fireOpenSearch: () => openSearchHandler?.(),
   });
 }
 
@@ -114,6 +123,7 @@ function resetStores() {
     drafts: {},
     hydrated: true,
     home: '/Users/h',
+    searchQuery: '',
   });
 }
 
@@ -301,6 +311,18 @@ describe('<App />', () => {
     expect(screen.queryByTestId('settings-popover')).not.toBeInTheDocument();
     act(() => api.__fireOpenSettings());
     expect(screen.getByTestId('settings-popover')).toBeInTheDocument();
+  });
+
+  it('Cmd+F (request-open-search) switches the sidebar to the search view and expands it', async () => {
+    const api = installApi('darwin');
+    // Start with the sidebar collapsed to verify the handler also re-opens it.
+    useSessions.setState({ sideOpen: false });
+    render(<App />);
+    await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
+    act(() => api.__fireOpenSearch());
+    const state = useSessions.getState();
+    expect(state.sidebarView).toBe('search');
+    expect(state.sideOpen).toBe(true);
   });
 
   it('Cmd+1..9 (request-select-tab) focuses the Nth open tab', async () => {

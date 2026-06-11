@@ -47,6 +47,14 @@ describe('<SettingsPopover>', () => {
     expect(onDensityChange).toHaveBeenCalledWith('compact');
   });
 
+  it('fires onOpenTweaks when the "More controls in Tweaks" row is clicked', async () => {
+    const onOpenTweaks = vi.fn();
+    const user = userEvent.setup();
+    render(<SettingsPopover {...baseProps} onOpenTweaks={onOpenTweaks} />);
+    await user.click(screen.getByTestId('open-tweaks'));
+    expect(onOpenTweaks).toHaveBeenCalledTimes(1);
+  });
+
   it('closes on outside mousedown', () => {
     const onClose = vi.fn();
     render(

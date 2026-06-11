@@ -35,11 +35,21 @@ export function SessionItem({
     else if (e.key === 'Escape') onRenameCommit(null);
   };
 
+  const handleKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (renaming) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect();
+    }
+  };
+
   return (
     <div
       role="listitem"
+      tabIndex={0}
       className={'session-item' + (active ? ' active' : '')}
       onClick={onSelect}
+      onKeyDown={handleKey}
       data-testid={`session-item-${s.id}`}
     >
       <div className="si-row">

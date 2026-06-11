@@ -30,6 +30,7 @@ function seedSession(id = 'sess-1', name = 'demo'): Session {
     createdAt: 1_000_000,
     lastActiveAt: 1_000_000,
     tokens: 0,
+    usage: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
     sdkSessionId: '',
     turns: [],
   };
@@ -194,6 +195,41 @@ describe('SessionsDb', () => {
       const s = db.listSessions()[0]!;
       expect(s.tokens).toBe(100);
       expect(s.lastActiveAt).toBe(200);
+    });
+
+    it('accumulates per-category usage across turns', () => {
+      db.appendTurn('s', turn('t1', 'user', 'hi', 100), 50, {
+        input: 30,
+        output: 20,
+        cacheCreation: 0,
+        cacheRead: 0,
+      });
+      db.appendTurn('s', turn('t2', 'assistant', 'hi back', 200), 80, {
+        input: 10,
+        output: 40,
+        cacheCreation: 5,
+        cacheRead: 25,
+      });
+      const s = db.listSessions()[0]!;
+      expect(s.tokens).toBe(130);
+      expect(s.usage).toEqual({
+        input: 40,
+        output: 60,
+        cacheCreation: 5,
+        cacheRead: 25,
+      });
+    });
+
+    it('treats missing addUsage as zero so legacy callers still work', () => {
+      db.appendTurn('s', turn('t1', 'user', 'hi', 100), 17);
+      const s = db.listSessions()[0]!;
+      expect(s.tokens).toBe(17);
+      expect(s.usage).toEqual({
+        input: 0,
+        output: 0,
+        cacheCreation: 0,
+        cacheRead: 0,
+      });
     });
 
     it('omits modelShort from the returned Turn when stored as null', () => {

@@ -4,9 +4,11 @@ import { Icon } from './Icon';
 
 interface TurnProps {
   turn: TurnT;
+  /** When true, append the typing-dots indicator to the bottom of this turn's body. */
+  typing?: boolean;
 }
 
-export function Turn({ turn }: TurnProps) {
+export function Turn({ turn, typing = false }: TurnProps) {
   const isUser = turn.role === 'user';
   return (
     <div className={'turn ' + (isUser ? 'user' : 'assistant')} data-testid={`turn-${turn.id}`}>
@@ -23,6 +25,13 @@ export function Turn({ turn }: TurnProps) {
         {turn.blocks.map((b, i) => (
           <Block key={i} block={b} />
         ))}
+        {typing && (
+          <div className="typing-dots" data-testid="typing">
+            <i />
+            <i />
+            <i />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@
  * `ipcMain.handle()` in the main process.
  */
 
-import type { Block, Session, SessionId, Turn } from './types';
+import type { Block, Session, SessionId, TokenUsage, Turn } from './types';
 
 export type ModelFamily = 'opus' | 'sonnet' | 'haiku';
 /** A specific model ID the API exposes, e.g. 'claude-sonnet-4-6'. */
@@ -45,6 +45,7 @@ export type ChatEvent =
       turnId: string;
       blocks: Block[];
       addTokens: number;
+      addUsage: TokenUsage;
       sdkSessionId: string;
     }
   | { type: 'error'; message: string };
@@ -71,6 +72,8 @@ export interface Api {
     onRequestToggleSidebar(handler: () => void): Unsubscribe;
     /** Cmd/Ctrl+, — open the settings popover. */
     onRequestOpenSettings(handler: () => void): Unsubscribe;
+    /** Cmd/Ctrl+F — switch the sidebar to the Search view and focus the input. */
+    onRequestOpenSearch(handler: () => void): Unsubscribe;
     /** Cmd/Ctrl+1..9 — focus the Nth open tab. Handler is a no-op when out of range. */
     onRequestSelectTab(handler: (n: number) => void): Unsubscribe;
   };
@@ -87,8 +90,21 @@ export interface Api {
     list(): Promise<SdkModel[]>;
   };
   chat: {
-    /** Begin a streaming chat turn. The promise resolves on `turn-stop`. */
-    send(sessionId: SessionId, userText: string): Promise<void>;
+    /**
+     * Begin a streaming chat turn. The promise resolves on `turn-stop`.
+     * `globalSystemPrompt` is prepended to the session's own `systemPrompt`
+     * when calling the SDK; pass `''` to opt out.
+     */
+    send(
+      sessionId: SessionId,
+      userText: string,
+      globalSystemPrompt?: string,
+    ): Promise<void>;
+    /**
+     * Cancel the in-flight turn for this session. No-op if nothing is streaming.
+     * Analog of pressing Esc in the Claude CLI.
+     */
+    stop(sessionId: SessionId): Promise<void>;
     /** Subscribe to chat events for *all* sessions; filter by `sessionId` inside handler. */
     onEvent(
       handler: (sessionId: SessionId, event: ChatEvent) => void,
@@ -111,7 +127,12 @@ export interface Api {
   };
   turns: {
     list(sessionId: SessionId): Promise<Turn[]>;
-    append(sessionId: SessionId, turn: Turn, addTokens?: number): Promise<void>;
+    append(
+      sessionId: SessionId,
+      turn: Turn,
+      addTokens?: number,
+      addUsage?: TokenUsage,
+    ): Promise<void>;
   };
 }
 

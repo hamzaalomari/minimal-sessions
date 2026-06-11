@@ -71,4 +71,23 @@ describe('<ActivityBar />', () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
     expect(onOpenSearch).toHaveBeenCalledTimes(1);
   });
+
+  it('marks Search "on" when the search view is open, and a second click collapses', async () => {
+    const onToggleSide = vi.fn();
+    const onOpenSearch = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ActivityBar
+        {...base}
+        sidebarView="search"
+        onToggleSide={onToggleSide}
+        onOpenSearch={onOpenSearch}
+      />,
+    );
+    const btn = screen.getByRole('button', { name: /^search$/i });
+    expect(btn).toHaveClass('on');
+    await user.click(btn);
+    expect(onToggleSide).toHaveBeenCalledTimes(1);
+    expect(onOpenSearch).not.toHaveBeenCalled();
+  });
 });

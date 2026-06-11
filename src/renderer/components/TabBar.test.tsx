@@ -48,6 +48,21 @@ describe('<TabBar />', () => {
     expect(useSessions.getState().activeId).toBe(second);
   });
 
+  it('tabs are keyboard-focusable and activate on Enter / Space', async () => {
+    const user = userEvent.setup();
+    render(<TabBar />);
+    const [first, second] = SEED_OPEN_IDS;
+    const secondTab = screen.getByTestId(`tab-${second}`);
+    expect(secondTab).toHaveAttribute('tabindex', '0');
+    secondTab.focus();
+    await user.keyboard('{Enter}');
+    expect(useSessions.getState().activeId).toBe(second);
+    const firstTab = screen.getByTestId(`tab-${first}`);
+    firstTab.focus();
+    await user.keyboard(' ');
+    expect(useSessions.getState().activeId).toBe(first);
+  });
+
   it('close button removes the tab', async () => {
     const user = userEvent.setup();
     render(<TabBar />);

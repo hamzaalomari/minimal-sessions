@@ -16,6 +16,7 @@ function resetStore() {
     showNew: false,
     renamingId: null,
     drafts: {},
+    searchQuery: '',
   });
 }
 
@@ -85,6 +86,89 @@ describe('<Sidebar />', () => {
     const s = useSessions.getState();
     expect(s.deletedSessions.find((x) => x.id === 'gone-2')).toBeUndefined();
     confirmSpy.mockRestore();
+  });
+
+  it('search view filters open sessions by name', async () => {
+    useSessions.setState({ sidebarView: 'search', searchQuery: '' });
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    const input = screen.getByRole('textbox', { name: /search sessions/i });
+    await user.type(input, 'auth');
+    const results = screen.getByTestId('search-results');
+    expect(within(results).getByText('auth-service refactor')).toBeInTheDocument();
+    expect(within(results).queryByText('marketing-site copy')).toBeNull();
+  });
+
+  it('search view filters by path too', async () => {
+    useSessions.setState({ sidebarView: 'search', searchQuery: '' });
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    await user.type(screen.getByRole('textbox', { name: /search sessions/i }), 'internal');
+    const results = screen.getByTestId('search-results');
+    expect(within(results).getByText('data-pipeline debug')).toBeInTheDocument();
+    expect(within(results).queryByText('auth-service refactor')).toBeNull();
+  });
+
+  it('search view shows separate Open / History sections with deleted matches', async () => {
+    const deleted = { ...SEED_SESSIONS[0]!, id: 'gone-search', name: 'old-auth-stuff' };
+    useSessions.setState({
+      sidebarView: 'search',
+      searchQuery: '',
+      deletedSessions: [deleted],
+    });
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    await user.type(screen.getByRole('textbox', { name: /search sessions/i }), 'auth');
+    const results = screen.getByTestId('search-results');
+    expect(within(results).getByText('auth-service refactor')).toBeInTheDocument();
+    expect(within(results).getByText('old-auth-stuff')).toBeInTheDocument();
+    // Open section appears before History — Open match is first in DOM order.
+    const open = within(results).getByText('auth-service refactor');
+    const hist = within(results).getByText('old-auth-stuff');
+    expect(open.compareDocumentPosition(hist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('search view shows a hint and no results until the user types', () => {
+    useSessions.setState({ sidebarView: 'search', searchQuery: '' });
+    render(<Sidebar />);
+    expect(screen.getByTestId('search-hint')).toBeInTheDocument();
+    const results = screen.getByTestId('search-results');
+    expect(within(results).queryByRole('listitem')).toBeNull();
+    expect(within(results).queryByText(/open/i)).toBeNull();
+    expect(within(results).queryByText(/history/i)).toBeNull();
+  });
+
+  it('search view shows a single "no match" message when the query has no results', () => {
+    useSessions.setState({ sidebarView: 'search', searchQuery: 'zzznopezzz' });
+    render(<Sidebar />);
+    expect(screen.getByText(/no sessions match/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('search-hint')).toBeNull();
+  });
+
+  it('search view hides the Open section header when only history matches', async () => {
+    const deleted = { ...SEED_SESSIONS[0]!, id: 'gone-only', name: 'lone-history' };
+    useSessions.setState({
+      sidebarView: 'search',
+      searchQuery: 'lone-history',
+      deletedSessions: [deleted],
+    });
+    render(<Sidebar />);
+    const results = screen.getByTestId('search-results');
+    expect(within(results).getByText('History')).toBeInTheDocument();
+    expect(within(results).queryByText('Open')).toBeNull();
+  });
+
+  it('Esc clears the query while it has text, then returns to sessions view on the next Esc', async () => {
+    useSessions.setState({ sidebarView: 'search', searchQuery: 'auth' });
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    const input = screen.getByRole('textbox', { name: /search sessions/i });
+    input.focus();
+    await user.keyboard('{Escape}');
+    expect(useSessions.getState().searchQuery).toBe('');
+    expect(useSessions.getState().sidebarView).toBe('search');
+    await user.keyboard('{Escape}');
+    expect(useSessions.getState().sidebarView).toBe('sessions');
   });
 
   it('cancelling the confirm leaves the session in history', async () => {

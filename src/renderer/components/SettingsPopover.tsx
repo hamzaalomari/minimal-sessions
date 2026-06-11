@@ -10,6 +10,7 @@ interface SettingsPopoverProps {
   density: Density;
   onThemeChange(theme: Theme): void;
   onDensityChange(density: Density): void;
+  onOpenTweaks?(): void;
   onClose(): void;
   /** The button that opened the popover. Mousedown on it is ignored by the
    *  close handler so a second click on it can toggle the popover closed. */
@@ -22,6 +23,7 @@ export function SettingsPopover({
   density,
   onThemeChange,
   onDensityChange,
+  onOpenTweaks,
   onClose,
   triggerEl,
 }: SettingsPopoverProps) {
@@ -91,13 +93,18 @@ export function SettingsPopover({
         </div>
       </div>
       <div className="set-sep" />
-      <div className="set-row" style={{ cursor: 'default' }}>
+      <button
+        type="button"
+        className="set-row set-action"
+        onClick={onOpenTweaks}
+        data-testid="open-tweaks"
+      >
         <div>
           <div className="set-label">More controls in Tweaks</div>
-          <div className="set-sub">Open the Tweaks panel for accent & fonts</div>
+          <div className="set-sub">Font, system prompt, and more</div>
         </div>
         <Icon name="sliders" style={{ width: 18, height: 18, color: 'var(--faint)' }} />
-      </div>
+      </button>
     </div>
   );
 }
