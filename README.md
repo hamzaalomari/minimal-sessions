@@ -14,9 +14,14 @@ A minimal desktop client for running multiple Claude coding sessions in parallel
 - **Keyboard shortcuts.** `⌘N` new session · `⌘W` close tab · `⌘\` toggle sidebar · `⌘1`–`⌘9` jump to tab N · `⌘,` settings · `⌘F` search.
 - **Local-first persistence.** All sessions, turns, and usage are persisted to SQLite via the Electron main process. The only network call is the SDK's own to Claude.
 
-## Install
+## Prerequisites
 
-Requires **Node 20+** and a working [Claude Code](https://claude.com/claude-code) install (the Agent SDK reuses its auth).
+- **Node.js 20+** (npm ships with Node). Check with `node -v`.
+- **[Claude Code](https://claude.com/claude-code) installed and authenticated.** The Agent SDK reuses your local `claude` CLI session — there's no API key configured in the app. Run `claude /login` once if you haven't already.
+- **macOS, Windows, or Linux** with a desktop environment. Native module rebuild (`better-sqlite3`) needs a working C++ toolchain on first install — Xcode Command Line Tools on macOS, Build Tools for Visual Studio on Windows, `build-essential` on Linux.
+- **Git** for cloning.
+
+## Install
 
 ```bash
 git clone https://github.com/hamzaalomari/minimal-sessions.git
