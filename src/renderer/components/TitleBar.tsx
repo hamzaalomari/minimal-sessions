@@ -1,4 +1,4 @@
-import { Icon } from './Icon';
+import markUrl from '../assets/brand/minimal-sessions-mark.svg';
 
 interface TitleBarProps {
   title: string;
@@ -11,7 +11,7 @@ export function TitleBar({ title, isMac }: TitleBarProps) {
   return (
     <div className={'titlebar' + (isMac ? ' mac' : '')}>
       <div className="title-name">
-        <Icon name="spark" className="title-spark" />
+        <img src={markUrl} alt="" className="title-mark" aria-hidden="true" />
         {title}
       </div>
     </div>

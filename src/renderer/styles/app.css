@@ -82,10 +82,10 @@
   pointer-events: none;
 }
 
-.title-spark {
-  width: 13px;
-  height: 13px;
-  color: var(--accent);
+.title-mark {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 /* ───── Activity bar ───── */
@@ -105,17 +105,17 @@
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: var(--accent);
-  color: #fff;
+  margin-bottom: 8px;
   display: grid;
   place-items: center;
-  margin-bottom: 8px;
   box-shadow: 0 2px 8px color-mix(in oklch, var(--accent) 40%, transparent);
 }
 
-.act-mark svg {
-  width: 18px;
-  height: 18px;
+.act-mark img {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: block;
 }
 
 .act-btn {

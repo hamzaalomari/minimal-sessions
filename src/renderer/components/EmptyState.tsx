@@ -1,6 +1,7 @@
 import type { Session } from '@shared/types';
 import { Icon, type IconName } from './Icon';
 import { getModel } from '../data/models';
+import iconUrl from '../assets/brand/minimal-sessions-icon.svg';
 
 interface Suggestion {
   icon: IconName;
@@ -24,9 +25,7 @@ export function EmptyState({ session, onSuggest }: EmptyStateProps) {
   return (
     <div className="empty" data-testid="empty-state">
       <div className="empty-card">
-        <div className="empty-mark">
-          <Icon name="spark" />
-        </div>
+        <img src={iconUrl} alt="" aria-hidden="true" className="empty-mark" />
         <h2>Start a conversation</h2>
         <p>{modelName} is ready in this folder.</p>
         <div className="empty-path">{session.path}</div>

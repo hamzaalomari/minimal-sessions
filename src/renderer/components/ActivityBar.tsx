@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 import { Icon } from './Icon';
+import iconUrl from '../assets/brand/minimal-sessions-icon.svg';
 
 interface ActivityBarProps {
   sideOpen: boolean;
@@ -26,8 +27,8 @@ export function ActivityBar({
 
   return (
     <div className="activitybar">
-      <div className="act-mark" title="Claude Session Viewer">
-        <Icon name="spark" />
+      <div className="act-mark" title="Minimal Sessions">
+        <img src={iconUrl} alt="" aria-hidden="true" />
       </div>
       <button
         className={
