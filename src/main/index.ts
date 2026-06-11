@@ -20,6 +20,15 @@ import { SEED_SESSIONS } from '@shared/seed';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isMac = platform === 'darwin';
 
+// In dev (`npm run dev`) the launched binary is Electron itself, so the menu
+// bar and Dock identity come from Electron's bundle. `app.setName` updates the
+// menu-bar label and userData dir; `app.dock.setIcon` swaps the Dock icon.
+// The Dock *label* under the icon still says "Electron" because macOS reads it
+// from the launching .app's Info.plist — only the packaged build fixes that.
+if (!app.isPackaged) {
+  app.setName('Minimal Sessions');
+}
+
 let sessionsDb: SessionsDb | null = null;
 let modelsCache: SdkModel[] | null = null;
 
@@ -327,6 +336,11 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  // Dev-only Dock icon override. Compiled main lives at out/main/index.js,
+  // so ../../resources/icon.png resolves to the project root in dev.
+  if (!app.isPackaged && isMac && app.dock) {
+    app.dock.setIcon(join(__dirname, '..', '..', 'resources', 'icon.png'));
+  }
   sessionsDb = openSessionsDb(join(app.getPath('userData'), 'sessions.db'));
   seedIfEmpty(sessionsDb, SEED_SESSIONS);
   registerIpc();
