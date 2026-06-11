@@ -122,6 +122,45 @@ describe('<SessionItem />', () => {
     expect(onRenameCommit).toHaveBeenCalledWith(null);
   });
 
+  it('is keyboard-focusable and fires onSelect on Enter / Space', async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SessionItem
+        session={baseSession}
+        active={false}
+        renaming={false}
+        onSelect={onSelect}
+        onRenameCommit={() => {}}
+      />,
+    );
+    const row = screen.getByTestId('session-item-s1');
+    expect(row).toHaveAttribute('tabindex', '0');
+    row.focus();
+    await user.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    await user.keyboard(' ');
+    expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores Enter / Space while in rename mode', async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SessionItem
+        session={baseSession}
+        active={false}
+        renaming
+        onSelect={onSelect}
+        onRenameCommit={() => {}}
+      />,
+    );
+    const row = screen.getByTestId('session-item-s1');
+    row.focus();
+    await user.keyboard('{Enter}');
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it('calls onOpenMenu without firing onSelect when the kebab is clicked', async () => {
     const onSelect = vi.fn();
     const onOpenMenu = vi.fn();

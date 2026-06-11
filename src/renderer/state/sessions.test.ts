@@ -202,6 +202,22 @@ describe('sessions store', () => {
       expect(after.turns.length).toBe(before.turns.length + 1);
       expect(after.tokens).toBe(before.tokens + 25);
     });
+
+    it('appendTurn accumulates per-category usage when provided', () => {
+      const id = SEED_OPEN_IDS[0]!;
+      const before = useSessions.getState().sessions.find((x) => x.id === id)!;
+      act(() => {
+        useSessions.getState().appendTurn(
+          id,
+          { id: 't-u', role: 'assistant', blocks: [], createdAt: Date.now() },
+          150,
+          { input: 100, output: 50, cacheCreation: 0, cacheRead: 0 },
+        );
+      });
+      const after = useSessions.getState().sessions.find((x) => x.id === id)!;
+      expect(after.usage.input).toBe(before.usage.input + 100);
+      expect(after.usage.output).toBe(before.usage.output + 50);
+    });
   });
 
   describe('persistence', () => {
@@ -360,7 +376,12 @@ describe('sessions store', () => {
         createdAt: 123,
       };
       act(() => useSessions.getState().appendTurn(id, turn, 42));
-      expect(mocks.append).toHaveBeenCalledWith(id, turn, 42);
+      expect(mocks.append).toHaveBeenCalledWith(id, turn, 42, {
+        input: 0,
+        output: 0,
+        cacheCreation: 0,
+        cacheRead: 0,
+      });
     });
   });
 });

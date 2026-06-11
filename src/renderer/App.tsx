@@ -11,6 +11,8 @@ import { SettingsPopover } from './components/SettingsPopover';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { TitleBar } from './components/TitleBar';
+import { TokenMeter } from './components/TokenMeter';
+import { TweaksPanel } from './components/TweaksPanel';
 import { useActiveSession, useSessions } from './state/sessions';
 import { useApplyTweaks, useTweaks } from './state/tweaks';
 
@@ -80,6 +82,7 @@ export function App() {
     trigger: HTMLElement;
   } | null>(null);
   const [editingInstructionsFor, setEditingInstructionsFor] = useState<string | null>(null);
+  const [showTweaks, setShowTweaks] = useState(false);
 
   useEffect(() => {
     void window.api.app.platform().then(setPlatform);
@@ -120,12 +123,18 @@ export function App() {
       const id = state.openIds[n - 1];
       if (id) state.selectSession(id);
     });
+    const offSearch = window.api.app.onRequestOpenSearch(() => {
+      const state = useSessions.getState();
+      if (!state.sideOpen) state.toggleSide();
+      state.setSidebarView('search');
+    });
     return () => {
       offClose();
       offNew();
       offToggleSide();
       offSettings();
       offSelectTab();
+      offSearch();
     };
   }, []);
 
@@ -154,6 +163,10 @@ export function App() {
         onToggleSide={toggleSide}
         onSelectSessions={() => setSidebarView('sessions')}
         onSelectHistory={() => setSidebarView('history')}
+        onOpenSearch={() => {
+          if (!sideOpen) toggleSide();
+          setSidebarView('search');
+        }}
         onOpenSettings={(el) =>
           setSettings((current) =>
             current ? null : { anchor: leftEdgePopAnchor(el), trigger: el },
@@ -184,6 +197,7 @@ export function App() {
 
       <footer className="statusbar">
         <div className="st-spacer" />
+        {active && <TokenMeter session={active} />}
         <button
           className="st-seg st-btn"
           onClick={toggleTheme}
@@ -210,9 +224,15 @@ export function App() {
           density={density}
           onThemeChange={setTheme}
           onDensityChange={setDensity}
+          onOpenTweaks={() => {
+            setSettings(null);
+            setShowTweaks(true);
+          }}
           onClose={() => setSettings(null)}
         />
       )}
+
+      {showTweaks && <TweaksPanel onClose={() => setShowTweaks(false)} />}
 
       {menu && (
         <ContextMenu

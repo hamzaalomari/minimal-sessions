@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { platform } from 'node:process';
 import type { CreateSessionInput, Platform } from '@shared/api';
-import type { SessionId, Turn } from '@shared/types';
+import type { SessionId, TokenUsage, Turn } from '@shared/types';
 import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
 import { branchFor, dirExists } from './fs';
 import {
@@ -22,6 +22,13 @@ const isMac = platform === 'darwin';
 
 let sessionsDb: SessionsDb | null = null;
 let modelsCache: SdkModel[] | null = null;
+
+/**
+ * One AbortController per in-flight session turn. The renderer's
+ * `api.chat.stop(sessionId)` aborts the matching entry, which cancels the
+ * SDK's stream — analog of pressing Esc in the Claude CLI.
+ */
+const inflight = new Map<SessionId, AbortController>();
 
 function getDb(): SessionsDb {
   if (!sessionsDb) throw new Error('SessionsDb not initialized');
@@ -100,6 +107,11 @@ function buildMenu(): Menu {
     accelerator: 'CmdOrCtrl+,',
     click: sendToFocused('app:request-open-settings'),
   };
+  const findItem: MenuItemConstructorOptions = {
+    label: 'Find Session…',
+    accelerator: 'CmdOrCtrl+F',
+    click: sendToFocused('app:request-open-search'),
+  };
   const selectTabItems: MenuItemConstructorOptions[] = Array.from(
     { length: 9 },
     (_, i) => {
@@ -158,6 +170,8 @@ function buildMenu(): Menu {
         { role: 'copy' },
         { role: 'paste' },
         { role: 'selectAll' },
+        { type: 'separator' },
+        findItem,
       ],
     },
     {
@@ -226,29 +240,51 @@ function registerIpc(): void {
 
   ipcMain.handle(
     'chat:send',
-    async (_e, sessionId: SessionId, userText: string, turnId: string) => {
+    async (
+      _e,
+      sessionId: SessionId,
+      userText: string,
+      turnId: string,
+      globalSystemPrompt = '',
+    ) => {
       const db = getDb();
       const session = db.listSessions().find((s) => s.id === sessionId);
       if (!session) throw new Error(`Session not found: ${sessionId}`);
-      await runStreamingTurn(
-        realQuery,
-        {
-          session,
-          userText,
-          ...(session.sdkSessionId
-            ? { resumeSdkSessionId: session.sdkSessionId }
-            : {}),
-        },
-        (event) => {
-          if (event.type === 'turn-stop' && event.sdkSessionId) {
-            db.updateSdkSessionId(sessionId, event.sdkSessionId);
-          }
-          emitChatEvent(sessionId, event);
-        },
-        turnId,
-      );
+      // If a prior turn is somehow still tracked (e.g. crashed mid-stream),
+      // abort it before starting a new one so the map stays consistent.
+      inflight.get(sessionId)?.abort();
+      const abortController = new AbortController();
+      inflight.set(sessionId, abortController);
+      try {
+        await runStreamingTurn(
+          realQuery,
+          {
+            session,
+            userText,
+            abortController,
+            ...(session.sdkSessionId
+              ? { resumeSdkSessionId: session.sdkSessionId }
+              : {}),
+            ...(globalSystemPrompt ? { globalSystemPrompt } : {}),
+          },
+          (event) => {
+            if (event.type === 'turn-stop' && event.sdkSessionId) {
+              db.updateSdkSessionId(sessionId, event.sdkSessionId);
+            }
+            emitChatEvent(sessionId, event);
+          },
+          turnId,
+        );
+      } finally {
+        if (inflight.get(sessionId) === abortController) {
+          inflight.delete(sessionId);
+        }
+      }
     },
   );
+  ipcMain.handle('chat:stop', (_e, sessionId: SessionId) => {
+    inflight.get(sessionId)?.abort();
+  });
 
   ipcMain.handle('sessions:list', () => getDb().listSessions());
   ipcMain.handle('sessions:create', (_e, input: CreateSessionInput) =>
@@ -280,8 +316,13 @@ function registerIpc(): void {
   );
   ipcMain.handle(
     'turns:append',
-    (_e, sessionId: SessionId, turn: Turn, addTokens?: number) =>
-      getDb().appendTurn(sessionId, turn, addTokens ?? 0),
+    (
+      _e,
+      sessionId: SessionId,
+      turn: Turn,
+      addTokens?: number,
+      addUsage?: TokenUsage,
+    ) => getDb().appendTurn(sessionId, turn, addTokens ?? 0, addUsage),
   );
 }
 

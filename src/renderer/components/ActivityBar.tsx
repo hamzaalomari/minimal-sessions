@@ -3,7 +3,7 @@ import { Icon } from './Icon';
 
 interface ActivityBarProps {
   sideOpen: boolean;
-  sidebarView: 'sessions' | 'history';
+  sidebarView: 'sessions' | 'history' | 'search';
   onToggleSide(): void;
   onSelectSessions(): void;
   onSelectHistory(): void;
@@ -46,10 +46,15 @@ export function ActivityBar({
         <Icon name="sessions" />
       </button>
       <button
-        className="act-btn"
+        className={
+          'act-btn' + (sideOpen && sidebarView === 'search' ? ' on' : '')
+        }
         title="Search"
         aria-label="Search"
-        onClick={onOpenSearch}
+        onClick={() => {
+          if (sideOpen && sidebarView === 'search') onToggleSide();
+          else onOpenSearch?.();
+        }}
       >
         <Icon name="search" />
       </button>

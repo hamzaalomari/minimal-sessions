@@ -218,3 +218,18 @@
   width: 17px;
   height: 17px;
 }
+
+.send-btn.stop-btn {
+  background: var(--danger);
+}
+
+.send-btn.stop-btn:hover {
+  filter: brightness(1.08);
+}
+
+.send-btn.stop-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke: none;
+}

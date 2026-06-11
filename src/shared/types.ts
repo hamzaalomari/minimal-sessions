@@ -42,6 +42,27 @@ export interface Turn {
   createdAt: number;
 }
 
+/**
+ * Per-turn token counts as reported by the Agent SDK's `result.usage`.
+ * The status-bar token meter aggregates these across the session and
+ * estimates cost via the pricing table.
+ */
+export interface TokenUsage {
+  input: number;
+  output: number;
+  /** Tokens written to the prompt cache (billed at ~1.25× input on Anthropic). */
+  cacheCreation: number;
+  /** Tokens read from the prompt cache (billed at ~0.1× input on Anthropic). */
+  cacheRead: number;
+}
+
+export const ZERO_USAGE: TokenUsage = {
+  input: 0,
+  output: 0,
+  cacheCreation: 0,
+  cacheRead: 0,
+};
+
 export interface Session {
   id: SessionId;
   name: string;
@@ -52,7 +73,10 @@ export interface Session {
   branch: string;
   createdAt: number;
   lastActiveAt: number;
+  /** Sum of all turn token counts (input + output + cache). Kept for the legacy meter. */
   tokens: number;
+  /** Per-category running totals. Computed from the same `result.usage` as `tokens`. */
+  usage: TokenUsage;
   /** Claude Agent SDK session id from the most recent turn; '' if not yet started. */
   sdkSessionId: string;
   turns: Turn[];

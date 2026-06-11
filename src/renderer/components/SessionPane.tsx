@@ -7,6 +7,7 @@ import { Composer } from './Composer';
 import { EmptyState } from './EmptyState';
 import { Transcript } from './Transcript';
 import { useSessions } from '../state/sessions';
+import { useTweaks } from '../state/tweaks';
 
 const newTurnId = (): string =>
   globalThis.crypto?.randomUUID?.() ??
@@ -38,6 +39,10 @@ export function SessionPane({ session }: SessionPaneProps) {
   // re-subscribing on every keystroke.
   const streamingRef = useRef<StreamingTurn | null>(null);
   streamingRef.current = streaming;
+  // Turn ids the user stopped optimistically. The eventual real turn-stop for
+  // these is consumed for sdkSessionId bookkeeping but not re-appended to the
+  // transcript — we've already finalized them locally.
+  const cancelledTurnIds = useRef<Set<string>>(new Set());
 
   // One subscription per mounted session. We filter by sessionId so other
   // active streams don't leak into this pane.
@@ -64,7 +69,15 @@ export function SessionPane({ session }: SessionPaneProps) {
       setStreaming(next);
       return;
     }
-    if (!cur) return;
+    // Late-arriving turn-stop after an optimistic stop has nulled cur — still
+    // want the sdkSessionId update and the cancelled-id cleanup.
+    if (!cur) {
+      if (event.type === 'turn-stop') {
+        if (event.sdkSessionId) setSdkSessionId(session.id, event.sdkSessionId);
+        cancelledTurnIds.current.delete(event.turnId);
+      }
+      return;
+    }
     if (event.type === 'text-delta') {
       const next: StreamingTurn = { ...cur, text: cur.text + event.text };
       streamingRef.current = next;
@@ -108,6 +121,13 @@ export function SessionPane({ session }: SessionPaneProps) {
       return;
     }
     if (event.type === 'turn-stop') {
+      // sdkSessionId update applies even when the user already stopped — the
+      // SDK still hands us back a session id for resume context.
+      if (event.sdkSessionId) setSdkSessionId(session.id, event.sdkSessionId);
+      if (cancelledTurnIds.current.has(event.turnId)) {
+        cancelledTurnIds.current.delete(event.turnId);
+        return;
+      }
       const finalTurn: Turn = {
         id: event.turnId,
         role: 'assistant',
@@ -117,8 +137,7 @@ export function SessionPane({ session }: SessionPaneProps) {
       };
       streamingRef.current = null;
       setStreaming(null);
-      appendTurn(session.id, finalTurn, event.addTokens);
-      if (event.sdkSessionId) setSdkSessionId(session.id, event.sdkSessionId);
+      appendTurn(session.id, finalTurn, event.addTokens, event.addUsage);
       return;
     }
     if (event.type === 'error') {
@@ -126,6 +145,29 @@ export function SessionPane({ session }: SessionPaneProps) {
       // a useful signal for any future UI surface (e.g. a toast).
       return;
     }
+  };
+
+  /**
+   * Instant-stop UX: finalize the in-flight assistant turn locally with whatever
+   * partial content has streamed in plus a "Stopped." marker, then fire the
+   * abort to main. The eventual real turn-stop is just consumed for sdkSessionId.
+   */
+  const stop = (): void => {
+    const cur = streamingRef.current;
+    if (cur) {
+      const partial: Turn = {
+        id: cur.id,
+        role: 'assistant',
+        blocks: [...foldText(cur), { type: 'p', text: 'Stopped.' }],
+        createdAt: Date.now(),
+        ...(cur.modelShort ? { modelShort: cur.modelShort } : {}),
+      };
+      cancelledTurnIds.current.add(cur.id);
+      streamingRef.current = null;
+      setStreaming(null);
+      appendTurn(session.id, partial, 0);
+    }
+    void window.api.chat.stop(session.id);
   };
 
   const send = async () => {
@@ -142,7 +184,8 @@ export function SessionPane({ session }: SessionPaneProps) {
     setDraft(session.id, '');
 
     try {
-      await window.api.chat.send(session.id, text);
+      const globalSystemPrompt = useTweaks.getState().systemPrompt;
+      await window.api.chat.send(session.id, text, globalSystemPrompt);
     } catch (e) {
       const message = (e as Error)?.message || 'Failed to send.';
       // Render the error as an assistant turn so the user sees it inline.
@@ -190,6 +233,7 @@ export function SessionPane({ session }: SessionPaneProps) {
         value={draft}
         onChange={(t) => setDraft(session.id, t)}
         onSend={send}
+        onStop={stop}
         busy={!!streaming}
       />
     </>

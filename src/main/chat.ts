@@ -18,7 +18,8 @@ import type {
   SDKSystemMessage,
   SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
-import type { Block, Session } from '@shared/types';
+import type { Block, Session, TokenUsage } from '@shared/types';
+import { ZERO_USAGE } from '@shared/types';
 import { parseMarkdown } from '@shared/markdown';
 import { pathForTool, summaryFor, toolKindFor } from '@shared/tool-display';
 
@@ -32,7 +33,10 @@ export type ChatEvent =
       type: 'turn-stop';
       turnId: string;
       blocks: Block[];
+      /** Sum of all token categories. Equals usage.input + output + cacheCreation + cacheRead. */
       addTokens: number;
+      /** Per-category breakdown so the status-bar meter can split + price it. */
+      addUsage: TokenUsage;
       sdkSessionId: string;
     }
   | { type: 'error'; message: string };
@@ -42,6 +46,10 @@ export interface SendArgs {
   userText: string;
   /** SDK session id from a prior turn, if any. Used to chain context. */
   resumeSdkSessionId?: string;
+  /** Aborting the controller mid-turn cancels the SDK stream — analog of Esc in the Claude CLI. */
+  abortController?: AbortController;
+  /** Global system prompt (from Tweaks) — prepended to `session.systemPrompt`. */
+  globalSystemPrompt?: string;
 }
 
 /** Minimal shape we depend on from the SDK so tests can inject a fake. */
@@ -61,11 +69,21 @@ export async function runStreamingTurn(
   emit: (event: ChatEvent) => void,
   turnId: string,
 ): Promise<void> {
-  const { session, userText, resumeSdkSessionId } = args;
+  const {
+    session,
+    userText,
+    resumeSdkSessionId,
+    abortController,
+    globalSystemPrompt,
+  } = args;
+  const effectiveSystemPrompt = [globalSystemPrompt, session.systemPrompt]
+    .map((p) => (p ?? '').trim())
+    .filter(Boolean)
+    .join('\n\n');
   const blocks: Block[] = [];
   const toolWinIndex = new Map<string, number>();
   let modelShort: string | undefined;
-  let addTokens = 0;
+  const addUsage: TokenUsage = { ...ZERO_USAGE };
   let sdkSessionId = resumeSdkSessionId ?? '';
   let started = false;
 
@@ -76,9 +94,10 @@ export async function runStreamingTurn(
         cwd: session.path,
         ...(session.model ? { model: session.model } : {}),
         ...(resumeSdkSessionId ? { resume: resumeSdkSessionId } : {}),
-        ...(session.systemPrompt
-          ? { systemPrompt: session.systemPrompt }
+        ...(effectiveSystemPrompt
+          ? { systemPrompt: effectiveSystemPrompt }
           : {}),
+        ...(abortController ? { abortController } : {}),
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
         includePartialMessages: false,
@@ -123,8 +142,18 @@ export async function runStreamingTurn(
       if (msg.type === 'result') {
         const result = msg as SDKResultMessage;
         sdkSessionId = result.session_id || sdkSessionId;
-        addTokens =
-          (result.usage?.input_tokens ?? 0) + (result.usage?.output_tokens ?? 0);
+        const u = result.usage as
+          | {
+              input_tokens?: number;
+              output_tokens?: number;
+              cache_creation_input_tokens?: number;
+              cache_read_input_tokens?: number;
+            }
+          | undefined;
+        addUsage.input = u?.input_tokens ?? 0;
+        addUsage.output = u?.output_tokens ?? 0;
+        addUsage.cacheCreation = u?.cache_creation_input_tokens ?? 0;
+        addUsage.cacheRead = u?.cache_read_input_tokens ?? 0;
         if (result.subtype !== 'success') {
           const message = (result as { result?: string }).result || 'Claude returned an error.';
           blocks.push({ type: 'error', message });
@@ -136,12 +165,25 @@ export async function runStreamingTurn(
     if (!started) {
       emit({ type: 'turn-start', turnId });
     }
-    emit({ type: 'turn-stop', turnId, blocks, addTokens, sdkSessionId });
+    const addTokens =
+      addUsage.input + addUsage.output + addUsage.cacheCreation + addUsage.cacheRead;
+    emit({ type: 'turn-stop', turnId, blocks, addTokens, addUsage, sdkSessionId });
   } catch (e) {
-    const message = (e as Error)?.message || String(e);
-    blocks.push({ type: 'error', message });
-    emit({ type: 'error', message });
-    emit({ type: 'turn-stop', turnId, blocks, addTokens, sdkSessionId });
+    // If the user pressed Stop, surface a short "Stopped." marker rather than
+    // an angry red error block — matches the Claude CLI's behavior on Esc.
+    const aborted =
+      abortController?.signal.aborted === true ||
+      (e as Error)?.name === 'AbortError';
+    if (aborted) {
+      blocks.push({ type: 'p', text: 'Stopped.' });
+    } else {
+      const message = (e as Error)?.message || String(e);
+      blocks.push({ type: 'error', message });
+      emit({ type: 'error', message });
+    }
+    const addTokens =
+      addUsage.input + addUsage.output + addUsage.cacheCreation + addUsage.cacheRead;
+    emit({ type: 'turn-stop', turnId, blocks, addTokens, addUsage, sdkSessionId });
   }
 }
 

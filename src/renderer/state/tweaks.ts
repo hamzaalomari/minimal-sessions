@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark';
-export type ReadFont = 'sans' | 'serif';
+export type ReadFont = 'sans' | 'serif' | 'mono';
 export type Density = 'compact' | 'cozy';
 
 export interface Tweaks {
@@ -11,6 +11,8 @@ export interface Tweaks {
   accent: string;
   readFont: ReadFont;
   density: Density;
+  /** Global system prompt prepended to every session's effective prompt. */
+  systemPrompt: string;
 }
 
 interface TweaksStore extends Tweaks {
@@ -18,6 +20,7 @@ interface TweaksStore extends Tweaks {
   setAccent(accent: string): void;
   setReadFont(readFont: ReadFont): void;
   setDensity(density: Density): void;
+  setSystemPrompt(systemPrompt: string): void;
   toggleTheme(): void;
 }
 
@@ -26,6 +29,7 @@ const DEFAULTS: Tweaks = {
   accent: '#c4663f',
   readFont: 'sans',
   density: 'cozy',
+  systemPrompt: '',
 };
 
 const DENSITY = {
@@ -41,6 +45,7 @@ export const useTweaks = create<TweaksStore>()(
       setAccent: (accent) => set({ accent }),
       setReadFont: (readFont) => set({ readFont }),
       setDensity: (density) => set({ density }),
+      setSystemPrompt: (systemPrompt) => set({ systemPrompt }),
       toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
     }),
     { name: 'tweaks' },
@@ -59,10 +64,20 @@ export function useApplyTweaks(): void {
     document.body.setAttribute('data-density', density);
     const r = document.documentElement.style;
     r.setProperty('--accent', accent);
-    r.setProperty('--read', readFont === 'serif' ? 'var(--serif)' : 'var(--ui)');
+    r.setProperty(
+      '--read',
+      readFont === 'serif'
+        ? 'var(--serif)'
+        : readFont === 'mono'
+          ? 'var(--mono)'
+          : 'var(--ui)',
+    );
     const d = DENSITY[density];
     r.setProperty('--turn-gap', d.gap);
-    r.setProperty('--read-size', readFont === 'serif' ? '16.5px' : d.size);
+    r.setProperty(
+      '--read-size',
+      readFont === 'serif' ? '16.5px' : readFont === 'mono' ? '13.5px' : d.size,
+    );
     r.setProperty('--read-line', d.line);
   }, [theme, accent, readFont, density]);
 }

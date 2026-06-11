@@ -564,6 +564,16 @@ body[data-theme='dark'] .diff-line.del {
   height: 22px;
 }
 
+/* When the dots are nested in a turn-body, the body already has the 33px indent. */
+.turn-body > .typing-dots {
+  padding-left: 0;
+  margin-top: 6px;
+}
+
+.turn-body > .typing-dots:only-child {
+  margin-top: 0;
+}
+
 .typing-dots i {
   width: 6px;
   height: 6px;

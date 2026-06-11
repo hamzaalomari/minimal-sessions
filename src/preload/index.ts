@@ -28,6 +28,11 @@ const api: Api = {
       ipcRenderer.on('app:request-open-settings', listener);
       return () => ipcRenderer.removeListener('app:request-open-settings', listener);
     },
+    onRequestOpenSearch: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-open-search', listener);
+      return () => ipcRenderer.removeListener('app:request-open-search', listener);
+    },
     onRequestSelectTab: (handler) => {
       const listener = (_e: unknown, n: number): void => handler(n);
       ipcRenderer.on('app:request-select-tab', listener);
@@ -43,12 +48,19 @@ const api: Api = {
     list: () => ipcRenderer.invoke('models:list'),
   },
   chat: {
-    send: (sessionId, userText) => {
+    send: (sessionId, userText, globalSystemPrompt = '') => {
       const turnId =
         globalThis.crypto?.randomUUID?.() ??
         `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-      return ipcRenderer.invoke('chat:send', sessionId, userText, turnId);
+      return ipcRenderer.invoke(
+        'chat:send',
+        sessionId,
+        userText,
+        turnId,
+        globalSystemPrompt,
+      );
     },
+    stop: (sessionId) => ipcRenderer.invoke('chat:stop', sessionId),
     onEvent: (handler) => {
       const listener = (_e: unknown, sessionId: SessionId, event: ChatEvent): void =>
         handler(sessionId, event);
@@ -69,8 +81,14 @@ const api: Api = {
   },
   turns: {
     list: (sessionId) => ipcRenderer.invoke('turns:list', sessionId),
-    append: (sessionId, turn, addTokens) =>
-      ipcRenderer.invoke('turns:append', sessionId, turn, addTokens ?? 0),
+    append: (sessionId, turn, addTokens, addUsage) =>
+      ipcRenderer.invoke(
+        'turns:append',
+        sessionId,
+        turn,
+        addTokens ?? 0,
+        addUsage ?? { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
+      ),
   },
 };
 

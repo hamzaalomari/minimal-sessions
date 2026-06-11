@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import type { Database as DatabaseType, Statement } from 'better-sqlite3';
-import type { Block, Session, SessionId, Turn } from '@shared/types';
+import type { Block, Session, SessionId, TokenUsage, Turn } from '@shared/types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at      INTEGER NOT NULL,
   last_active     INTEGER NOT NULL,
   tokens          INTEGER NOT NULL DEFAULT 0,
+  tokens_input    INTEGER NOT NULL DEFAULT 0,
+  tokens_output   INTEGER NOT NULL DEFAULT 0,
+  tokens_cache_w  INTEGER NOT NULL DEFAULT 0,
+  tokens_cache_r  INTEGER NOT NULL DEFAULT 0,
   sdk_session_id  TEXT NOT NULL DEFAULT '',
   deleted_at      INTEGER NOT NULL DEFAULT 0
 );
@@ -39,6 +43,10 @@ interface SessionRow {
   created_at: number;
   last_active: number;
   tokens: number;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_cache_w: number;
+  tokens_cache_r: number;
   sdk_session_id: string;
 }
 
@@ -81,8 +89,13 @@ export interface SessionsDb {
   deleteSession(id: SessionId): void;
   /** Turns for a single session, ordered by creation time. */
   listTurns(sessionId: SessionId): Turn[];
-  /** Append a turn AND atomically bump the session's tokens + last_active. */
-  appendTurn(sessionId: SessionId, turn: Turn, addTokens?: number): void;
+  /** Append a turn AND atomically bump the session's tokens + usage + last_active. */
+  appendTurn(
+    sessionId: SessionId,
+    turn: Turn,
+    addTokens?: number,
+    addUsage?: TokenUsage,
+  ): void;
   close(): void;
 }
 
@@ -97,6 +110,12 @@ function rowToSession(row: SessionRow, turns: Turn[]): Session {
     createdAt: row.created_at,
     lastActiveAt: row.last_active,
     tokens: row.tokens,
+    usage: {
+      input: row.tokens_input ?? 0,
+      output: row.tokens_output ?? 0,
+      cacheCreation: row.tokens_cache_w ?? 0,
+      cacheRead: row.tokens_cache_r ?? 0,
+    },
     sdkSessionId: row.sdk_session_id ?? '',
     turns,
   };
@@ -130,7 +149,9 @@ interface Statements {
   listTurnsForSession: Statement<[string], TurnRow>;
   listAllTurns: Statement<[], TurnRow>;
   insertTurn: Statement<[string, string, 'user' | 'assistant', string, string | null, number]>;
-  bumpTokensAndTouch: Statement<[number, number, string]>;
+  bumpTokensAndTouch: Statement<[
+    number, number, number, number, number, number, string,
+  ]>;
   countSessions: Statement<[], { n: number }>;
 }
 
@@ -139,15 +160,28 @@ export function openSessionsDb(filename: string): SessionsDb {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
-  // Idempotent migrations for tables created before this column existed.
+  // Idempotent migrations for tables created before these columns existed.
   const cols = db.prepare("PRAGMA table_info(sessions)").all() as Array<{
     name: string;
   }>;
-  if (!cols.some((c) => c.name === 'sdk_session_id')) {
+  const has = (name: string): boolean => cols.some((c) => c.name === name);
+  if (!has('sdk_session_id')) {
     db.exec("ALTER TABLE sessions ADD COLUMN sdk_session_id TEXT NOT NULL DEFAULT ''");
   }
-  if (!cols.some((c) => c.name === 'deleted_at')) {
+  if (!has('deleted_at')) {
     db.exec('ALTER TABLE sessions ADD COLUMN deleted_at INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!has('tokens_input')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN tokens_input INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!has('tokens_output')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN tokens_output INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!has('tokens_cache_w')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN tokens_cache_w INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!has('tokens_cache_r')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN tokens_cache_r INTEGER NOT NULL DEFAULT 0');
   }
 
   const stmts: Statements = {
@@ -189,7 +223,14 @@ export function openSessionsDb(filename: string): SessionsDb {
        VALUES (?, ?, ?, ?, ?, ?)`,
     ),
     bumpTokensAndTouch: db.prepare(
-      'UPDATE sessions SET tokens = tokens + ?, last_active = ? WHERE id = ?',
+      `UPDATE sessions
+         SET tokens         = tokens + ?,
+             tokens_input   = tokens_input + ?,
+             tokens_output  = tokens_output + ?,
+             tokens_cache_w = tokens_cache_w + ?,
+             tokens_cache_r = tokens_cache_r + ?,
+             last_active    = ?
+       WHERE id = ?`,
     ),
     countSessions: db.prepare('SELECT COUNT(*) AS n FROM sessions') as Statement<
       [],
@@ -198,7 +239,7 @@ export function openSessionsDb(filename: string): SessionsDb {
   };
 
   const appendTurnTx = db.transaction(
-    (sessionId: string, turn: Turn, addTokens: number) => {
+    (sessionId: string, turn: Turn, addTokens: number, addUsage: TokenUsage) => {
       stmts.insertTurn.run(
         turn.id,
         sessionId,
@@ -207,7 +248,15 @@ export function openSessionsDb(filename: string): SessionsDb {
         turn.modelShort ?? null,
         turn.createdAt,
       );
-      stmts.bumpTokensAndTouch.run(addTokens, turn.createdAt, sessionId);
+      stmts.bumpTokensAndTouch.run(
+        addTokens,
+        addUsage.input,
+        addUsage.output,
+        addUsage.cacheCreation,
+        addUsage.cacheRead,
+        turn.createdAt,
+        sessionId,
+      );
     },
   );
 
@@ -260,6 +309,7 @@ export function openSessionsDb(filename: string): SessionsDb {
         createdAt: now,
         lastActiveAt: now,
         tokens,
+        usage: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
         sdkSessionId: '',
         turns: [],
       };
@@ -291,8 +341,14 @@ export function openSessionsDb(filename: string): SessionsDb {
     listTurns(sessionId) {
       return stmts.listTurnsForSession.all(sessionId).map(rowToTurn);
     },
-    appendTurn(sessionId, turn, addTokens = 0) {
-      appendTurnTx(sessionId, turn, addTokens);
+    appendTurn(sessionId, turn, addTokens = 0, addUsage) {
+      const usage: TokenUsage = addUsage ?? {
+        input: 0,
+        output: 0,
+        cacheCreation: 0,
+        cacheRead: 0,
+      };
+      appendTurnTx(sessionId, turn, addTokens, usage);
     },
     close() {
       db.close();

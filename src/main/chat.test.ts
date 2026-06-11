@@ -13,6 +13,7 @@ function mkSession(overrides: Partial<Session> = {}): Session {
     createdAt: 0,
     lastActiveAt: 0,
     tokens: 0,
+    usage: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
     sdkSessionId: '',
     turns: [],
     ...overrides,
@@ -63,6 +64,7 @@ describe('runStreamingTurn', () => {
       type: 'turn-stop',
       sdkSessionId: 'sdk-1',
       addTokens: 20,
+      addUsage: { input: 12, output: 8, cacheCreation: 0, cacheRead: 0 },
     });
     if (stop?.type === 'turn-stop') {
       expect(stop.blocks).toEqual([{ type: 'p', text: 'hello world' }]);
@@ -152,6 +154,62 @@ describe('runStreamingTurn', () => {
     expect(args.options['cwd']).toBe('/tmp/fake');
     expect(args.options['systemPrompt']).toBe('be brief');
     expect(args.options['resume']).toBe('old-sdk-id');
+  });
+
+  it('prepends globalSystemPrompt to the session systemPrompt with a blank line', async () => {
+    const querySpy = vi.fn(fakeQuery([
+      { type: 'result', subtype: 'success', session_id: 'sdk-g1', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    await runStreamingTurn(
+      querySpy as unknown as QueryFn,
+      {
+        session: mkSession({ systemPrompt: 'be brief' }),
+        userText: 'hi',
+        globalSystemPrompt: 'always respond in markdown',
+      },
+      () => {},
+      'tid',
+    );
+    const args = querySpy.mock.calls[0]?.[0] as { options: Record<string, unknown> };
+    expect(args.options['systemPrompt']).toBe(
+      'always respond in markdown\n\nbe brief',
+    );
+  });
+
+  it('uses globalSystemPrompt alone when the session has none', async () => {
+    const querySpy = vi.fn(fakeQuery([
+      { type: 'result', subtype: 'success', session_id: 'sdk-g2', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    await runStreamingTurn(
+      querySpy as unknown as QueryFn,
+      {
+        session: mkSession({ systemPrompt: '' }),
+        userText: 'hi',
+        globalSystemPrompt: 'be terse',
+      },
+      () => {},
+      'tid',
+    );
+    const args = querySpy.mock.calls[0]?.[0] as { options: Record<string, unknown> };
+    expect(args.options['systemPrompt']).toBe('be terse');
+  });
+
+  it('omits systemPrompt entirely when neither global nor session is set', async () => {
+    const querySpy = vi.fn(fakeQuery([
+      { type: 'result', subtype: 'success', session_id: 'sdk-g3', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    await runStreamingTurn(
+      querySpy as unknown as QueryFn,
+      {
+        session: mkSession({ systemPrompt: '' }),
+        userText: 'hi',
+        globalSystemPrompt: '   ',
+      },
+      () => {},
+      'tid',
+    );
+    const args = querySpy.mock.calls[0]?.[0] as { options: Record<string, unknown> };
+    expect(args.options['systemPrompt']).toBeUndefined();
   });
 
   it('emits an error block when the SDK throws', async () => {
@@ -289,5 +347,66 @@ describe('runStreamingTurn', () => {
     expect(events.some((e) => e.type === 'error' && /rate limit/.test(e.message))).toBe(
       true,
     );
+  });
+
+  it('forwards an AbortController to the SDK and emits a "Stopped." block on abort', async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+    // Simulate the SDK throwing AbortError once its signal fires.
+    const querySpy = vi.fn((() => {
+      const err = new Error('aborted');
+      err.name = 'AbortError';
+      throw err;
+    }) as unknown as QueryFn);
+    const events: ChatEvent[] = [];
+    await runStreamingTurn(
+      querySpy,
+      { session: mkSession(), userText: 'hi', abortController },
+      (e) => events.push(e),
+      'tid',
+    );
+    const args = querySpy.mock.calls[0]?.[0] as { options: Record<string, unknown> };
+    expect(args.options['abortController']).toBe(abortController);
+    // No 'error' event should fire on a deliberate abort.
+    expect(events.find((e) => e.type === 'error')).toBeUndefined();
+    const stop = events.find((e) => e.type === 'turn-stop');
+    if (stop?.type === 'turn-stop') {
+      expect(stop.blocks).toEqual([{ type: 'p', text: 'Stopped.' }]);
+    }
+  });
+
+  it('captures cache creation / read tokens from the SDK result', async () => {
+    const events: ChatEvent[] = [];
+    const query = fakeQuery([
+      { type: 'system', subtype: 'init', session_id: 'sdk-5', model: 'claude-sonnet-4-6' },
+      { type: 'assistant', message: { content: [{ type: 'text', text: 'k' }] } },
+      {
+        type: 'result',
+        subtype: 'success',
+        session_id: 'sdk-5',
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_creation_input_tokens: 200,
+          cache_read_input_tokens: 400,
+        },
+      },
+    ]);
+    await runStreamingTurn(
+      query,
+      { session: mkSession(), userText: 'hi' },
+      (e) => events.push(e),
+      'tid',
+    );
+    const stop = events.find((e) => e.type === 'turn-stop');
+    expect(stop).toMatchObject({
+      addTokens: 750,
+      addUsage: {
+        input: 100,
+        output: 50,
+        cacheCreation: 200,
+        cacheRead: 400,
+      },
+    });
   });
 });

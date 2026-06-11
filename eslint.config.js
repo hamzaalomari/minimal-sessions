@@ -26,6 +26,14 @@ export default [
   { ignores: ['out/**', 'node_modules/**', 'dist/**'] },
   js.configs.recommended,
   {
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: nodeGlobals,
+    },
+  },
+  {
     files: ['electron.vite.config.ts', 'src/main/**/*.ts', 'src/preload/**/*.ts'],
     languageOptions: {
       parser: tsparser,
