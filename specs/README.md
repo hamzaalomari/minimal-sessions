@@ -1,4 +1,4 @@
-# AI Work Viewer — Speckit
+# Minimal Sessions — Speckit
 
 This folder is the source of truth for what we're building, why, and in what order.
 

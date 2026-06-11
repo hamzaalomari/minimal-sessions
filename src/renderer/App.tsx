@@ -139,7 +139,7 @@ export function App() {
   }, []);
 
   const isMac = platform === 'darwin';
-  const title = 'AI Work Viewer';
+  const title = 'Minimal Sessions';
   const editingSession = editingInstructionsFor
     ? sessions.find((s) => s.id === editingInstructionsFor) ?? null
     : null;

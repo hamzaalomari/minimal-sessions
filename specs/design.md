@@ -1,4 +1,4 @@
-# Design — AI Work Viewer
+# Design — Minimal Sessions
 
 > **Status (2026-06-11):** Reflects the M0–M4 implementation. Notable post-spec pivots (Agent SDK, History view, listbox model picker) are documented inline.
 
@@ -42,7 +42,7 @@ grid-template-areas:
   "status status status";
 ```
 
-- **Title bar** — 40px tall. Custom (frameless window). Traffic lights on macOS; minimize/maximize/close on Windows. Centered label is always **"AI Work Viewer"**.
+- **Title bar** — 40px tall. Custom (frameless window). Traffic lights on macOS; minimize/maximize/close on Windows. Centered label is always **"Minimal Sessions"**.
 - **Activity bar** — 52px wide. App mark + Sessions toggle + Search + **History (clock)** + (spacer) + Settings.
 - **Sidebar** — 268px wide; collapses to 0 with `.side-collapsed`. Has two views: `sessions` and `history`.
 - **Main** — fills remaining space; hosts tabs + transcript/empty + composer + overlays.
@@ -54,8 +54,8 @@ The **New session panel** is rendered via `createPortal(document.body)` so its s
 
 | Component | Source | Purpose |
 |---|---|---|
-| `<App>` | `src/renderer/App.tsx` | Top-level state container, theming effect, panel mounting. Title is always "AI Work Viewer". |
-| `<TitleBar>` | `src/renderer/components/TitleBar.tsx` | Traffic lights spacer + centered "AI Work Viewer" label. |
+| `<App>` | `src/renderer/App.tsx` | Top-level state container, theming effect, panel mounting. Title is always "Minimal Sessions". |
+| `<TitleBar>` | `src/renderer/components/TitleBar.tsx` | Traffic lights spacer + centered "Minimal Sessions" label. |
 | `<ActivityBar>` | `src/renderer/components/ActivityBar.tsx` | App mark + Sessions / Search / **History (clock)** / Settings buttons. Toggling the active view collapses the sidebar. |
 | `<Sidebar>` | `src/renderer/components/Sidebar.tsx` | Switches between **sessions** view and **history** view. History view shows soft-deleted sessions with Restore + permanent-delete buttons. |
 | `<SessionItem>` | `src/renderer/components/SessionItem.tsx` | Row: model dot + name + time / path / model+messages / hover-only kebab. Kebab swaps in over the timestamp on hover. Inline rename. |
@@ -333,4 +333,4 @@ There is **no `settings.getApiKey` / `setApiKey`** — the Agent SDK owns auth. 
 - **ABI handling** — `npm test` needs Node's ABI, `npm run dev` and `npm run build` need Electron's. `predev` / `prebuild` run `scripts/rebuild-native.mjs --runtime=electron`, which uses `prebuild-install` to download the prebuilt Electron binary directly (skipping `@electron/rebuild`'s broken `.forge-meta` cache). `pretest` runs `--runtime=node`, which delegates to `npm rebuild better-sqlite3` so the install script's `prebuild-install || node-gyp rebuild` fallback handles Node versions without a published prebuild. Both directions are idempotent and can run in either order.
 - **Tool windows coalesce read/edit/write/search/glob/grep**, but **never bash** — each shell command stays its own window.
 - **Live streaming overlay** uses the shared `tool-display.ts` helpers so the in-flight label matches the persisted `win` block exactly.
-- **Window title is constant** ("AI Work Viewer") — the active session name lives in the tab and transcript header, not the OS-level title.
+- **Window title is constant** ("Minimal Sessions") — the active session name lives in the tab and transcript header, not the OS-level title.

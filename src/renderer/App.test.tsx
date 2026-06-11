@@ -141,7 +141,7 @@ describe('<App />', () => {
     installApi('darwin');
     render(<App />);
     expect(
-      screen.getByText('AI Work Viewer', { selector: '.title-name' }),
+      screen.getByText('Minimal Sessions', { selector: '.title-name' }),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(window.api.app.platform).toHaveBeenCalled();

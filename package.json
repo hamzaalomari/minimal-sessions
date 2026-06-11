@@ -1,9 +1,10 @@
 {
-  "name": "ai-work-viewer",
-  "productName": "AI Work Viewer",
+  "name": "minimal-sessions",
+  "productName": "Minimal Sessions",
   "version": "0.0.0",
   "private": true,
-  "description": "Desktop viewer for multiple Claude coding sessions, each scoped to a folder and model.",
+  "license": "MIT",
+  "description": "A minimal desktop client for running multiple Claude coding sessions in parallel, each scoped to a working folder and model.",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
@@ -26,8 +27,8 @@
     "package:win": "npm run build && electron-builder --win"
   },
   "build": {
-    "appId": "com.aiworkviewer.app",
-    "productName": "AI Work Viewer",
+    "appId": "com.minimalsessions.app",
+    "productName": "Minimal Sessions",
     "directories": {
       "output": "dist",
       "buildResources": "resources"

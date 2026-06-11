@@ -16,7 +16,7 @@ Items the handoff left ambiguous, plus pivots that surfaced during implementatio
 
 ## Design
 
-- **Q6. Windows title bar.** ✅ **Resolved (default accepted).** Stock min/max/close on the right via `titleBarOverlay`; centered "AI Work Viewer" label.
+- **Q6. Windows title bar.** ✅ **Resolved (default accepted).** Stock min/max/close on the right via `titleBarOverlay`; centered "Minimal Sessions" label.
 
 - **Q7. Linux support.** ✅ **Resolved (default accepted).** No Linux installers in v1.
 
@@ -53,7 +53,7 @@ Items the handoff left ambiguous, plus pivots that surfaced during implementatio
 
 - **Q18. History view lifetime.** ✅ **Resolved (default accepted).** Soft-deleted sessions live in History forever until the user clicks the trash icon (with confirm). No automatic purge. Reconsider if the table grows uncomfortably.
 
-- **Q19. Window title — session name vs. product name.** ✅ **Resolved.** Constant "AI Work Viewer". The active session name lives in the tab and the transcript header. Avoids the OS-level title flicker on every tab switch.
+- **Q19. Window title — session name vs. product name.** ✅ **Resolved.** Constant "Minimal Sessions". The active session name lives in the tab and the transcript header. Avoids the OS-level title flicker on every tab switch.
 
 - **Q20. ABI flip-flop between Node and Electron.** ✅ **Resolved (M5 rewrite).** First pass used `@electron/rebuild` in `predev` / `prebuild` hooks, but its `.forge-meta` cache marker treated stale state as authoritative — if the `.node` file was missing or wrong-ABI but the marker matched, the rebuild silently no-op'd and the next `npm run dev` crashed with `NODE_MODULE_VERSION`. Replaced with `scripts/rebuild-native.mjs` which calls `prebuild-install` directly for Electron and delegates to `npm rebuild better-sqlite3` for Node (so its `prebuild-install || node-gyp rebuild` fallback handles patch versions without a published prebuild). `pretest` was also added so test runs auto-restore Node ABI. `@electron/rebuild` removed from dependencies.
 
