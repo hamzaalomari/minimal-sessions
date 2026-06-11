@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="src/renderer/assets/brand/minimal-sessions-wordmark-dark.svg" />
+    <img src="src/renderer/assets/brand/minimal-sessions-wordmark.svg" alt="Minimal Sessions" width="296" />
+  </picture>
+</p>
+
 # Minimal Sessions
 
 A minimal desktop client for running multiple Claude coding sessions in parallel — each one pinned to a working folder on disk and a chosen model. Built on Electron with React and the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk); auth is reused from your local Claude Code install, so there's no API-key dance.

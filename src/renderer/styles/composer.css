@@ -14,20 +14,12 @@
 }
 
 .empty-mark {
+  display: block;
   width: 54px;
   height: 54px;
-  border-radius: 15px;
-  background: var(--accent);
-  color: #fff;
-  display: grid;
-  place-items: center;
   margin: 0 auto 20px;
+  border-radius: 15px;
   box-shadow: 0 6px 22px color-mix(in oklch, var(--accent) 40%, transparent);
-}
-
-.empty-mark svg {
-  width: 28px;
-  height: 28px;
 }
 
 .empty h2 {
