@@ -1,4 +1,4 @@
-# Spec — AI Work Viewer
+# Spec — Minimal Sessions
 
 > **Status (2026-06-11):** Implementation is past M4. The spec has been updated in place to match what shipped, with the original intent preserved. Items still pending for M5 are flagged inline.
 
@@ -10,7 +10,7 @@ We need a single desktop-style app where each conversation is **scoped to a work
 
 ## 2. Product summary
 
-**AI Work Viewer** — a VS Code–style desktop app for browsing and running multiple Claude coding sessions in parallel. The user can:
+**Minimal Sessions** — a VS Code–style desktop app for browsing and running multiple Claude coding sessions in parallel. The user can:
 
 - See all sessions in a left sidebar (model, folder path, message count, last active).
 - Open sessions as named, drag-reorderable tabs across the top.
@@ -51,7 +51,7 @@ The app uses the locally-installed **Claude Agent SDK** for chat, so it inherits
 - **FR-T1.** Selecting a session from the sidebar opens it as a tab (if not already open) and focuses it.
 - **FR-T2.** Tabs are **closeable**; closing the active tab activates the previous remaining tab, or shows the "No session open" state.
 - **FR-T3.** Tabs are **drag-reorderable** (HTML5 drag-and-drop).
-- **FR-T4.** The window title is **"AI Work Viewer"** at all times; the active session name appears in the active tab and in the transcript header, not in the title bar.
+- **FR-T4.** The window title is **"Minimal Sessions"** at all times; the active session name appears in the active tab and in the transcript header, not in the title bar.
 
 ### 4.3 Transcript
 
@@ -110,7 +110,7 @@ The status bar carries two controls: the **token meter** (left of the theme togg
 
 ## 5. Non-functional requirements
 
-- **NFR-1. Native feel.** Frameless window, macOS traffic lights with `titleBarStyle: 'hiddenInset'`, custom title bar with the centered "AI Work Viewer" label.
+- **NFR-1. Native feel.** Frameless window, macOS traffic lights with `titleBarStyle: 'hiddenInset'`, custom title bar with the centered "Minimal Sessions" label.
 - **NFR-2. High fidelity to the handoff.** Tokens (colors, radii, spacing, typography) are final per `design.md §4`. Compact density shrinks tool windows and turn gaps.
 - **NFR-3. Performance.** Switching tabs is instant. Streaming does not block the UI thread (the SDK runs in the main process; events stream over IPC).
 - **NFR-4. Auth & secrets.** The app does not handle the Anthropic API key directly. The Claude Agent SDK uses the user's existing Claude Code auth (OAuth subscription or `ANTHROPIC_API_KEY` env var). There is no in-app key entry, no `safeStorage`, no IPC method for keys.

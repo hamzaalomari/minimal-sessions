@@ -1,4 +1,4 @@
-# Implementation Plan — AI Work Viewer
+# Implementation Plan — Minimal Sessions
 
 Five milestones. Each is independently mergeable and leaves the app in a working state.
 
@@ -88,7 +88,7 @@ Done. Highlights:
 - **Tool-window compact mode.** `body[data-density="compact"]` selectors shrink padding/typography.
 - **Focus rings inset.** `outline-offset: -2px` so focus on the chat input doesn't bleed into adjacent UI when the user hits capslock.
 - **New session panel portaled.** `createPortal(document.body)`, animates `right: -460px → 0` — eliminates a frame where the panel was outside the viewport and shifted the grid.
-- **Window title is constant.** "AI Work Viewer" (matching `productName` in `package.json`). Active session name lives in the tab + transcript header.
+- **Window title is constant.** "Minimal Sessions" (matching `productName` in `package.json`). Active session name lives in the tab + transcript header.
 - **ABI flip-flop fix.** `predev` / `prebuild` npm scripts auto-rebuild `better-sqlite3` for Electron's ABI.
 
 ## M5 — Polish & ship
@@ -101,7 +101,7 @@ Pending tasks (most of the originally-specced M5 still applies, minus the API-ke
 - ✅ Keyboard shortcuts: `⌘N` new session, `⌘1`–`⌘9` jump to tab N, `⌘\` toggle sidebar, `⌘,` open settings, `⌘F` open session search. (`⌘W` close tab was already wired.)
 - ✅ Token meter / usage breakdown popover for the status bar — `sessions.tokens_*` columns persist input/output/cache-write/cache-read; `<TokenMeter>` + `<UsagePopover>` render the breakdown with per-model $/1M rates from `src/shared/pricing.ts`.
 - ✅ Accessibility pass: ARIA labels on icon-only buttons audited (all labeled); tab order + focus rings audited — `SessionItem` rows and `TabBar` tabs are now keyboard-focusable (`tabindex=0`, Enter/Space activates, `:focus-visible` accent ring). Native buttons inherit the global `button:focus-visible` ring from `tokens.css`.
-- ✅ Package: `electron-builder` 26.x wired in. `npm run package` produces installers for the host platform; `npm run package:mac` / `package:win` are explicit. macOS build verified locally — produces `dist/AI Work Viewer-<ver>-<arch>.dmg` and a matching `.zip`. `asarUnpack` keeps `better-sqlite3`'s native binary outside `app.asar` so Electron can `require()` it. **Open TODOs:** (1) code signing — `mac.identity` is set to `null` (skip) and Windows has no signing config; production builds need an Apple Developer ID + Windows Authenticode cert. (2) App icons — currently using the default Electron icon (warning logged at build time). (3) Cross-arch builds — the better-sqlite3 prebuild is host-arch only, so x64 Mac and Windows builds need to run on a matching host or in CI.
+- ✅ Package: `electron-builder` 26.x wired in. `npm run package` produces installers for the host platform; `npm run package:mac` / `package:win` are explicit. macOS build verified locally — produces `dist/Minimal Sessions-<ver>-<arch>.dmg` and a matching `.zip`. `asarUnpack` keeps `better-sqlite3`'s native binary outside `app.asar` so Electron can `require()` it. **Open TODOs:** (1) code signing — `mac.identity` is set to `null` (skip) and Windows has no signing config; production builds need an Apple Developer ID + Windows Authenticode cert. (2) App icons — currently using the default Electron icon (warning logged at build time). (3) Cross-arch builds — the better-sqlite3 prebuild is host-arch only, so x64 Mac and Windows builds need to run on a matching host or in CI.
 - `CONTRIBUTING.md` with dev / build / test commands.
 - Smoke-test on a clean macOS install and a clean Windows install.
 
