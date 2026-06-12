@@ -1,6 +1,6 @@
 # Spec — Minimal Sessions
 
-> **Status (2026-06-11):** Implementation is past M4. The spec has been updated in place to match what shipped, with the original intent preserved. Items still pending for M5 are flagged inline.
+> **Status (2026-06-13):** Implementation is past M6 (with a small punch list — see `plan.md`). The spec is updated in place to match what shipped; the original intent is preserved. Sections added during M6 are flagged (M6).
 
 ## 1. Problem
 
@@ -44,7 +44,7 @@ The app uses the locally-installed **Claude Agent SDK** for chat, so it inherits
 - **FR-S5.** Sessions **persist** across app restarts (list, transcripts, drafts, tokens, system prompt, sdkSessionId, deletion state).
 - **FR-S6.** Each session displays its current **git branch** for the working folder (read from `.git/HEAD`); blank if not a git repo.
 - **FR-S7.** The model picker is a **listbox dropdown** modeled after Claude Code's `/model` output. It lists every model the locally-installed Claude SDK advertises via `Query.supportedModels()`. Each row shows the display name, a one-line description, and a check next to the current selection. If the SDK list can't be reached, the picker falls back to a built-in set of recent models.
-- **FR-S8.** Each session has a **configurable system prompt** that is forwarded to the SDK on every send. The new-session panel exposes it as an expandable "Custom instructions" field with a sensible coding-assistant default. After creation, the user can edit it via the session context menu → "Edit instructions". Empty system prompt is allowed and means "no system prompt".
+- **FR-S8.** Each session has a **configurable system prompt** that is forwarded to the SDK on every send. The new-session panel exposes it as an expandable "Custom instructions" field with a sensible coding-assistant default. After creation, the user can edit it via the session context menu → "Edit instructions". Empty system prompt is allowed and means "no system prompt". A global system prompt is also editable in Settings; the two are concatenated (`<global>\n\n<session>`) before the SDK call. SessionHead shows a small `system prompt` chip when the session-level prompt is set, so it's discoverable that one is active (M6).
 
 ### 4.2 Tabs
 
@@ -59,7 +59,7 @@ The app uses the locally-installed **Claude Agent SDK** for chat, so it inherits
 - **FR-R2.** Block kinds supported: paragraph, heading, bulleted list, fenced code block (with language label), GFM-style table, tool line, expandable **tool window** with body, and inline error.
 - **FR-R3.** Inline formatting in paragraphs and list items: `**bold**`, `*italic*`, and `` `inline code` ``.
 - **FR-R4.** Code blocks have **light syntax highlighting** rendered as React nodes — never `innerHTML`.
-- **FR-R5.** Transcript auto-scrolls to the bottom on new turns and during streaming.
+- **FR-R5.** Transcript pins to the bottom while the user is at the bottom and force-scrolls when they hit Send. If they scroll up to read history, incoming streamed content does **not** drag them back down — they stay pinned to wherever they are until they manually return to the bottom. Implemented via a sticky-bottom flag + a `pinToBottomNonce` counter bumped on send.
 - **FR-R6.** A typing indicator shows while the assistant has not yet started producing content.
 - **FR-R7.** Empty session shows an empty-state card with the model name, folder path, and prefill suggestion chips.
 - **FR-R8.** **Tool windows** render per `kind`:
@@ -68,11 +68,14 @@ The app uses the locally-installed **Claude Agent SDK** for chat, so it inherits
 
 ### 4.4 Composer
 
-- **FR-C1.** Auto-growing textarea.
-- **FR-C2.** **Enter** sends; **Shift+Enter** inserts a newline.
+- **FR-C1.** Auto-growing textarea (ceiling 400px). Past the ceiling the textarea becomes scrollable with a thin webkit scrollbar that fades to transparent when not hovered or focused.
+- **FR-C2.** **Enter** sends; **Shift+Enter** inserts a newline. **Esc** while streaming aborts the in-flight turn.
 - **FR-C3.** Drafts are stored **per session** so switching tabs preserves unsent text.
-- **FR-C4.** Send button disabled when empty or while a reply is pending.
+- **FR-C4.** Send button disabled when empty or while a reply is pending. While busy, the send button becomes a Stop button that cancels the SDK stream and finalizes a "Stopped." marker locally.
 - **FR-C5.** Composer shows the session's model as a chip and the working folder name in the placeholder.
+- **FR-C6.** **Large paste collapsing (M6).** Pasting ≥15 lines or ≥1500 characters substitutes a `[Pasted #N: K lines]` placeholder at the caret. The full text is stored in a ref, and the placeholders are expanded back to the original content at send time.
+- **FR-C7.** **Click-to-arm typing (M6).** Clicking anywhere inside the session pane (outside the composer textarea itself) arms the pane: the next printable keystroke is routed into the composer and focused. Clicking outside the pane disarms. This avoids the focus-cursor-jump that a click-to-focus pattern would cause, while still letting users start typing from anywhere in the pane.
+- **FR-C8.** **Slash command UI (M6).** When the input starts with `/`, the composer-box flips into skill mode and shows a slash-command autocomplete popover. See FR-K5.
 
 ### 4.5 Messaging (Claude integration)
 
@@ -82,6 +85,7 @@ The app uses the locally-installed **Claude Agent SDK** for chat, so it inherits
 - **FR-M4.** When the SDK reports **tool use** (read, write, edit, glob, grep, bash, etc.), each call renders as a tool window in the transcript and its result fills the window body. The tool surface is whatever the bundled Claude binary advertises — **including bash**. Sandboxing the tools is the SDK/binary's responsibility, not ours.
 - **FR-M5.** Errors from the SDK (init failure, abort, non-success result) render as an inline error block in the transcript, not as a crash.
 - **FR-M6.** The SDK's `session_id` is captured on `turn-start` / `turn-stop` and persisted on the session, so subsequent sends pass `resume: <sdkSessionId>` to chain context.
+- **FR-M7.** **Token-by-token streaming (M6).** `chat.ts` passes `includePartialMessages: true` and forwards `stream_event` `content_block_delta` text deltas as `text-delta` events so the renderer can render the response token-by-token. The eventual full assistant message still arrives and rebuilds the canonical `blocks[]` for persistence, but its text-delta emit is suppressed when partial deltas streamed text already — preventing visible duplication.
 
 ### 4.6 Status bar
 
@@ -103,10 +107,40 @@ The status bar carries two controls: the **token meter** (left of the theme togg
 
 ### 4.8 Settings & menus
 
-- **FR-X1.** Settings popover (anchored off the gear in the activity bar): theme (light/dark) and density (compact/cozy) segmented controls.
+- **FR-X1.** Settings popover (anchored off the gear in the activity bar): theme (light/dark), density (compact/cozy), palette preset (per current theme), accent preset, reading font, chat width, text size, composer style (panel / terminal), code theme (`Accent (built-in)` + 10 stock highlight.js themes), and global system prompt. (Extended in M6.)
 - **FR-X2.** Session context menu (anchored off the sidebar item's kebab): Rename, Edit instructions, Close tab (if open), separator, Delete session (danger — soft-deletes to History).
 - **FR-X3.** The 3-dot kebab on a sidebar row swaps in over the "last active" timestamp on hover so the two don't overlap. Clicking the kebab a second time closes the menu (the popover-close hook short-circuits the trigger).
-- **FR-X4.** **History view** — the activity bar's clock icon opens a history list of soft-deleted sessions. Each row has a **Restore** button and a **trash** button (permanent delete with a confirm prompt).
+- **FR-X4.** **History view** — the activity bar's clock icon opens a history list of soft-deleted sessions. Each row has a **Restore** button and a **trash** button (permanent delete with a confirm prompt). When the list is non-empty, a destructive **Delete all** button appears in the header next to the back-to-Sessions link; click confirms then purges every soft-deleted session in one DB statement (turns cascade). (M6.)
+- **FR-X5.** **Tab cycling shortcuts.** `Ctrl+Tab` / `Ctrl+Shift+Tab`, `⌘+~`, `⌘+PgDn` / `⌘+PgUp`, `⌘+Shift+]` / `⌘+Shift+[` — all cycle through open tabs (forward / backward) with wraparound. (M6.)
+
+### 4.9 Embedded terminal (M6)
+
+- **FR-T5.** Each session pane has a `Chat / Terminal` switcher above the transcript area. The terminal renders a real PTY (`node-pty`) running the user's default shell in `session.path`, hosted in xterm.js.
+- **FR-T6.** The terminal handle is drag-resizable; the height persists across sessions via the tweaks store.
+- **FR-T7.** The transcript instance is preserved across the sub-tab toggle so scroll position survives.
+
+### 4.10 Slash commands & plugins (M6)
+
+- **FR-K1.** **Discovery.** Slash commands are discovered from four on-disk sources, in this priority order: (1) project `<cwd>/.claude/commands/*.md`, (2) user `~/.claude/commands/*.md`, (3) plugin `<plugin>/commands/*.md` namespaced as `<pluginName>:<cmd>`, (4) built-in `<app-resources>/commands/*.md` shipped with the installer. First match wins, so user files always override built-ins.
+- **FR-K2.** **File format.** Each command is a Markdown file. Optional YAML frontmatter is scanned for `description:`. `$ARGUMENTS` in the body is replaced by whatever the user typed after the command name when the SDK invokes it.
+- **FR-K3.** **Bundled defaults.** `resources/commands/` ships `security-review`, `explain`, `test`, `refactor`, `diff-review`, `commit`. These are packaged into installer builds via `electron-builder`'s `extraResources` so first-launch UX is non-empty.
+- **FR-K4.** **Plugin loading.** Every directory under `~/.claude/plugins/*/` and `<cwd>/.claude/plugins/*/` containing a `.claude-plugin/plugin.json` manifest is passed to `sdkQuery({options:{plugins:[…]}})`. Plugin slash commands, skills, hooks, agents, and MCP servers all surface automatically; nothing app-side is needed per plugin.
+- **FR-K5.** **Autocomplete UI.** When the composer's input starts with `/`, it switches to **skill mode** (accent border + `Slash command` chip) and shows a popover above the composer-box listing matching commands (name, description, scope badge). ↑/↓ navigates; Tab/Enter inserts the command text + trailing space. The popover hides when no matches or when the leading `/` is removed.
+
+### 4.11 New-session branch / worktree (M6)
+
+- **FR-N7.** Under the working-folder field, a three-way segmented control lets the user pick a git action to run before the session opens:
+  - **Use current** — no-op; the session opens against whatever branch is checked out.
+  - **New branch** — requires a name. Runs `git -C <path> switch -c <name>` in place.
+  - **New worktree** — requires a name. Runs `git -C <path> worktree add <path>-<name> -b <name>`; the new sibling directory becomes the session's path. The resolved path is previewed inline before the user confirms.
+- **FR-N8.** Git errors (path is not a repo, ref name invalid or taken, target directory exists, etc.) surface verbatim and abort session creation — no half-created sessions.
+- **FR-N9.** `branchFor` reads the worktree's gitdir from `<path>/.git` when it's a file pointer rather than a directory, so the SessionHead branch chip is correct in worktrees too.
+
+### 4.12 Analytics view (M6)
+
+- **FR-A1.** The activity bar's analytics icon opens a sidebar view showing total tokens and total estimated cost across **all** sessions (active + deleted).
+- **FR-A2.** A time-range selector (24h / 7d / 30d / all) filters the totals. Per-turn `usage` is persisted in `turns.tokens_input / output / cache_w / cache_r` columns added during M6. Legacy turns without per-turn usage attribute to `session.lastActiveAt` so non-`all` ranges aren't deceptively empty for older sessions.
+- **FR-A3.** A per-model breakdown lists each model's share of input / output / cache-write / cache-read tokens and the cost computed via `pricing.ts`.
 
 ## 5. Non-functional requirements
 

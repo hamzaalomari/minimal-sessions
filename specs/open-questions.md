@@ -12,7 +12,7 @@ Items the handoff left ambiguous, plus pivots that surfaced during implementatio
 
 - **Q4. Cost meter accuracy.** ✅ **Resolved (M5).** Status bar gained a `<TokenMeter>` pill and `<UsagePopover>` with per-category breakdown (input / output / cache-write / cache-read). Pricing lives in `src/shared/pricing.ts`: Opus $15/$75, Sonnet $3/$15, Haiku $1/$5 per 1M tokens; cache writes at 1.25× input, cache reads at 0.1×. The popover footer flags values as estimates. The renderer falls back to Sonnet pricing for any unknown model id rather than silently zeroing.
 
-- **Q5. Search in the activity bar.** ⏳ **Stubbed.** The button is in the activity bar but doesn't do anything yet. Full-text transcript search remains out of scope.
+- **Q5. Search in the activity bar.** ✅ **Resolved (partial).** Sidebar now has a `search` view (also reachable via `⌘F`). It matches sessions by name and path (case-insensitive substring) across both active and deleted lists. Full-text transcript search is still deferred — out of scope for now.
 
 ## Design
 
@@ -60,6 +60,22 @@ Items the handoff left ambiguous, plus pivots that surfaced during implementatio
 - **Q21. New session panel layout shift.** ✅ **Resolved.** Initial implementation animated the panel with `transform: translateX`, which momentarily extended the grid past the viewport and shifted the main pane sideways. Final fix: `createPortal(document.body)` + animate `right: -460px → 0` so the panel is never part of the main grid.
 
 - **Q22. Popover close-on-trigger toggling.** ✅ **Resolved.** `usePopoverClose` takes a `triggerEl` and ignores mousedowns on it, so the same click that opens a popover doesn't immediately close it (and a second click on the trigger toggles closed instead of re-opening).
+
+---
+
+## M6 (post-ship product depth)
+
+- **Q23. Slash command source format.** ✅ **Resolved.** Adopted the Claude Code CLI's existing `.claude/commands/*.md` convention (and the SDK's plugin `commands/` subdirectory) rather than inventing our own. Pros: anything users already define for the CLI works in our app; everything from community registries (`hesreallyhim/awesome-claude-code`, etc.) drops in for free; we don't own the templates. See `plan.md` M6 + `spec.md` §4.10. The newer `.claude/skills/<name>/SKILL.md` format is also accepted by the SDK when we pass plugin paths — we don't yet have a UI for it (see Q26).
+
+- **Q24. Built-in command policy.** ✅ **Resolved.** Built-ins ship inside the installer at `<resources>/commands/*.md` via `electron-builder` `extraResources`, **not** copied into the user's home dir on first launch. User and plugin files always override built-ins (the dedup is first-write-wins with order project → user → plugin → builtin). Upgrades replace the bundled set without ever touching user files.
+
+- **Q25. CLI-only slash commands like `/login`, `/init`.** ✅ **Resolved (limitation).** These are TUI flows owned by the Claude Code CLI binary, not the Agent SDK. We don't expose them and can't — `/login` opens an OAuth browser flow in a TTY. The workaround: users who haven't authenticated can open the embedded terminal sub-tab and run `claude login` there once; credentials persist for the SDK to use. A future M6 punch-list item is a "Connect to Claude" affordance that does this automatically.
+
+- **Q26. Plugin marketplace integration.** ⏳ **Open.** Anthropic has an official skills marketplace and several community registries exist (`hesreallyhim/awesome-claude-code` 36.8k stars, `quemsah/awesome-claude-plugins`, `obra/superpowers`). Today users install plugins by running `claude plugin install <name>@marketplace` in a shell — our discovery picks them up on next turn. A browse-and-install UX from inside the app would be high-impact but isn't trivial: we'd need to surface manifest metadata, handle versioning, and decide whether to drive everything through the CLI's `plugin install` or implement our own download/extract.
+
+- **Q27. Bundled command quality bar vs. coverage.** ⏳ **Open.** Six built-ins ship today (`security-review`, `explain`, `test`, `refactor`, `diff-review`, `commit`). Quality-over-quantity feels right — they're the demo experience — but a small batch of additions (`pr-description`, `migration`, `bench`, `release-notes`) would round out the daily-use surface. Holding off until usage tells us which gaps actually hurt.
+
+- **Q28. Worktree placement convention.** ✅ **Resolved.** New worktrees land at `<picked-path>-<worktree-name>` as a sibling directory. Predictable, visible in Finder/Explorer, and matches the most common `git worktree add ../<name>` pattern. The UI shows the resolved path inline before the user confirms.
 
 ---
 

@@ -1,8 +1,8 @@
 # Implementation Plan — Minimal Sessions
 
-Five milestones. Each is independently mergeable and leaves the app in a working state.
+Six milestones. Each is independently mergeable and leaves the app in a working state.
 
-> **Status (2026-06-11):** M0 through M4 are merged and on `master`. M5 is the remaining work.
+> **Status (2026-06-13):** M0 through M5 are merged on `master`. M6 is mostly merged — a small punch list remains (see below).
 
 ## M0 — Project scaffolding ✅
 
@@ -91,31 +91,68 @@ Done. Highlights:
 - **Window title is constant.** "Minimal Sessions" (matching `productName` in `package.json`). Active session name lives in the tab + transcript header.
 - **ABI flip-flop fix.** `predev` / `prebuild` npm scripts auto-rebuild `better-sqlite3` for Electron's ABI.
 
-## M5 — Polish & ship
+## M5 — Polish & ship ✅
 
 **Goal:** the app is ready to hand to another developer.
 
-Pending tasks (most of the originally-specced M5 still applies, minus the API-key flow that no longer exists):
+Done. Highlights:
 
 - ✅ Self-host JetBrains Mono and Newsreader fonts via `@fontsource/*`.
-- ✅ Keyboard shortcuts: `⌘N` new session, `⌘1`–`⌘9` jump to tab N, `⌘\` toggle sidebar, `⌘,` open settings, `⌘F` open session search. (`⌘W` close tab was already wired.)
+- ✅ Keyboard shortcuts: `⌘N` new session, `⌘1`–`⌘9` jump to tab N, `⌘\` toggle sidebar, `⌘,` open settings, `⌘F` open session search, `⌘J` toggle terminal. (`⌘W` close tab was already wired.)
 - ✅ Token meter / usage breakdown popover for the status bar — `sessions.tokens_*` columns persist input/output/cache-write/cache-read; `<TokenMeter>` + `<UsagePopover>` render the breakdown with per-model $/1M rates from `src/shared/pricing.ts`.
-- ✅ Accessibility pass: ARIA labels on icon-only buttons audited (all labeled); tab order + focus rings audited — `SessionItem` rows and `TabBar` tabs are now keyboard-focusable (`tabindex=0`, Enter/Space activates, `:focus-visible` accent ring). Native buttons inherit the global `button:focus-visible` ring from `tokens.css`.
-- ✅ Package: `electron-builder` 26.x wired in. `npm run package` produces installers for the host platform; `npm run package:mac` / `package:win` are explicit. macOS build verified locally — produces `dist/Minimal Sessions-<ver>-<arch>.dmg` and a matching `.zip`. `asarUnpack` keeps `better-sqlite3`'s native binary outside `app.asar` so Electron can `require()` it. **Open TODOs:** (1) code signing — `mac.identity` is set to `null` (skip) and Windows has no signing config; production builds need an Apple Developer ID + Windows Authenticode cert. (2) App icons — currently using the default Electron icon (warning logged at build time). (3) Cross-arch builds — the better-sqlite3 prebuild is host-arch only, so x64 Mac and Windows builds need to run on a matching host or in CI.
-- `CONTRIBUTING.md` with dev / build / test commands.
-- Smoke-test on a clean macOS install and a clean Windows install.
+- ✅ Accessibility pass: ARIA labels on icon-only buttons audited (all labeled); tab order + focus rings audited — `SessionItem` rows and `TabBar` tabs are keyboard-focusable (`tabindex=0`, Enter/Space activates, `:focus-visible` accent ring). Native buttons inherit the global `button:focus-visible` ring from `tokens.css`.
+- ✅ Brand + packaging: app icons wired (`resources/icon.png`, dev Dock override on macOS); `electron-builder` 26.x produces `dist/Minimal Sessions-<ver>-<arch>.dmg` + matching `.zip` for macOS and an NSIS installer for Windows; `asarUnpack` keeps `better-sqlite3` and `node-pty` native binaries outside `app.asar`.
+
+### M5 punch list (still open)
+
+- **Code signing.** `mac.identity` is `null` (skip); Windows has no signing config. Production builds need an Apple Developer ID + Windows Authenticode cert.
+- **Cross-arch builds.** The `better-sqlite3` prebuild is host-arch only. x64 Mac and Windows installers need a matching host or CI matrix.
+- **`CONTRIBUTING.md`** — dev / build / test commands not yet documented for outside contributors.
+- **Smoke-test on a clean macOS install and a clean Windows install.**
+
+## M6 — Product depth (post-ship)
+
+**Goal:** turn the app from "a Claude session manager" into an actual day-to-day workbench for parallel coding sessions.
+
+Mostly merged on `master`; a small set of follow-ups is itemised at the bottom.
+
+Done. Highlights:
+
+- **Token-by-token streaming.** `chat.ts` sets `includePartialMessages: true` and forwards SDK `stream_event` `content_block_delta` text deltas as `text-delta` events. A `streamedAnyText` flag suppresses the consolidated assistant message's text-delta emit so the live overlay isn't doubled, and falls back to emitting from the assistant message when no partials arrived (test mocks, older SDK builds).
+- **Embedded terminal sub-tab.** Each session pane has a Chat / Terminal switcher above the transcript. Terminal is a real PTY (`node-pty`) running the user's default shell in `session.path`, rendered via xterm.js. Drag-resizable handle; persisted height in tweaks. The Transcript instance is preserved across the toggle so scroll position survives.
+- **Analytics view.** Sidebar gains an `analytics` view showing total tokens and cost across all sessions, a per-model breakdown, and a time-range selector (24h / 7d / 30d / all). Per-turn `usage` is persisted in new `turns.tokens_*` columns; legacy turns without per-turn usage attribute to `session.lastActiveAt` so empty filtered ranges don't look broken.
+- **Browser-style nav.** Mouse buttons 4/5 (`app-command`) and `⌘⌥←` / `⌘⌥→` pop and re-push entries on a cursor-based stack tracking `{activeId, sidebarView}`. A `suppressNext` flag prevents feedback loops.
+- **Slash command discovery + autocomplete.** `discoverCommands(cwd)` walks four sources in priority order: project (`<cwd>/.claude/commands/*.md`), user (`~/.claude/commands/*.md`), plugin (`<plugin>/commands/*.md` namespaced as `pluginName:cmd`), and built-in (`resources/commands/*.md` bundled via `extraResources`). Minimal regex frontmatter scanner pulls `description:`. The Composer detects `/`-prefix, flips into skill mode (chip + accent border), and shows a `SlashSuggestions` popover with arrow-key nav and Tab/Enter to insert.
+- **SDK plugin loading.** `discoverPlugins(cwd)` finds every dir under `~/.claude/plugins/*/` and `<cwd>/.claude/plugins/*/` with a `.claude-plugin/plugin.json` manifest and passes the paths to `sdkQuery({options:{plugins}})`. Plugin slash commands, skills, hooks, agents, and MCP servers all surface automatically.
+- **Branch / worktree from the New Session panel.** Three-way segmented control under the folder picker: use current / new branch / new worktree. New branch runs `git -C <path> switch -c <name>`; new worktree runs `git -C <path> worktree add <path>-<name> -b <name>` (sibling dir, predictable, previewed in the UI). Errors bubble up verbatim. `branchFor` now follows the `.git`-as-a-file pointer worktrees use.
+- **Theme system overhaul.** Two-layer `data-theme` + `data-preset` attributes on body. Palette presets (warm / paper / mist; classic / midnight / ocean / slate) compose with light/dark. Accent presets, `--chat-max-width` and `--code-size` text/density scale, composer style toggle (panel vs. terminal-prompt), and a code-theme picker that injects one of 10 stock highlight.js themes via Vite `?raw`. Hardcoded `.hljs-*` rules gated behind `body[data-code-theme='default']` so picked themes win the cascade.
+- **Composer & transcript UX.** Auto-grow ceiling 400px with a thin fading scrollbar; large pastes (≥15 lines or ≥1500 chars) collapse into `[Pasted #N: K lines]` placeholders, expanded at send time. Click anywhere inside the pane "arms" typing — next printable key lands in the composer without a visible focus jump; clicking outside disarms. Send bumps a `pinToBottomNonce` that force-scrolls the transcript; existing sticky-bottom during streaming is unchanged.
+- **Transcript memoization.** `Transcript`, `Turn`, `Block`, `CodeBlock` are all `React.memo`; `Block` and `CodeBlock` use `useMemo` around `parseMarkdown` and `highlightNodes`. Typing in the composer no longer re-runs hljs on the whole thread.
+- **Tab cycling shortcuts.** `Ctrl+Tab` / `Ctrl+Shift+Tab` (VSCode + browser standard), `⌘+~`, `⌘+PgUp/PgDn`, `⌘+Shift+[/]`. Bound via the Window menu with hidden alias items. `Cmd+Tab` intentionally not bound on macOS.
+- **History delete-all.** History view header gains a destructive "Delete all" button (only when there's history) that purges every soft-deleted session in one DB statement (turns cascade via FK).
+- **System prompt visibility.** SessionHead shows a `system prompt` chip when a session has one configured. Both global (tweaks) and per-session prompts continue to be concatenated and passed every turn — covered by four `chat.test.ts` cases.
+- **Bundled starter commands.** `resources/commands/` ships `security-review`, `explain`, `test`, `refactor`, `diff-review`, `commit`. Installed by `extraResources`, surfaced as lowest-priority `'builtin'` scope so user files always win.
+
+### M6 punch list (still open)
+
+- **Plugin marketplace integration.** Browse / install plugins from inside the app. Currently users drop folders into `~/.claude/plugins/` by hand or run `claude plugin install` in a shell.
+- **One-click "Connect to Claude" UX.** For users who haven't run `claude login`, surface a button that drops them into a PTY pre-running `claude login`.
+- **More built-in commands.** Currently 6 — `pr-description`, `migration`, `bench`, etc. would round out the set.
+- **Skill discovery UI.** The SDK can autonomously invoke skills from `plugin/skills/<name>/SKILL.md`. We pass the plugin path so they load, but don't surface them in any UI yet.
+- **Auto-update channel.** No update mechanism shipped.
 
 **Acceptance**
 
-- [ ] `npm run package` produces working installers for macOS and Windows.
+- [ ] `npm run package` produces signed installers for macOS (Developer ID) and Windows (Authenticode).
 - [ ] All keyboard shortcuts behave as specified.
 - [ ] The only external network call is what the Agent SDK / Claude binary makes — the app itself never reaches out.
 - [ ] No console warnings in dev or production builds.
+- [ ] First-launch UX: a developer who has *not* run `claude login` is given a clear path forward (currently degrades silently).
 
 ## Dependencies & ordering
 
 ```
-M0 ──> M1 ──> M2 ──> M3 ──> M4 ──> M5
+M0 ──> M1 ──> M2 ──> M3 ──> M4 ──> M5 ──> M6
 ```
 
 ## Effort
@@ -129,5 +166,6 @@ Rough order-of-magnitude only (one engineer, full-time):
 | M2 | 1-2 | ✅ |
 | M3 | 1 | ✅ |
 | M4 | 3-4 | ✅ (incl. post-M4 polish) |
-| M5 | 2-3 | pending |
-| **Total** | **~12-17 days** | |
+| M5 | 2-3 | ✅ (punch list pending) |
+| M6 | 5-7 | ✅ (punch list pending) |
+| **Total** | **~17-24 days** | |
