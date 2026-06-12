@@ -11,7 +11,7 @@ export interface CreateSessionInput {
   branch?: string;
 }
 
-export type SidebarView = 'sessions' | 'history' | 'search' | 'analytics';
+export type SidebarView = 'sessions' | 'history' | 'search' | 'analytics' | 'plugins';
 
 interface SessionsState {
   /** Loaded from SQLite via window.api on hydrate(). */

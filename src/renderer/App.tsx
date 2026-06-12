@@ -333,6 +333,7 @@ export function App() {
         onSelectSessions={() => setSidebarView('sessions')}
         onSelectHistory={() => setSidebarView('history')}
         onSelectAnalytics={() => setSidebarView('analytics')}
+        onSelectPlugins={() => setSidebarView('plugins')}
         onOpenSearch={() => {
           if (!sideOpen) toggleSide();
           setSidebarView('search');

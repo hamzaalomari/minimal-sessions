@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Session } from '@shared/types';
 import { AnalyticsView } from './AnalyticsView';
+import { PluginMarketplaceView } from './PluginMarketplaceView';
 import { Icon } from './Icon';
 import { SessionItem } from './SessionItem';
 import { useSessions } from '../state/sessions';
@@ -197,6 +198,10 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
 
   if (sidebarView === 'analytics') {
     return <AnalyticsView />;
+  }
+
+  if (sidebarView === 'plugins') {
+    return <PluginMarketplaceView />;
   }
 
   if (sidebarView === 'history') {

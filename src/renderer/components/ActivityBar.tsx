@@ -5,11 +5,12 @@ import iconUrl from '../assets/brand/minimal-sessions-icon.svg';
 
 interface ActivityBarProps {
   sideOpen: boolean;
-  sidebarView: 'sessions' | 'history' | 'search' | 'analytics';
+  sidebarView: 'sessions' | 'history' | 'search' | 'analytics' | 'plugins';
   onToggleSide(): void;
   onSelectSessions(): void;
   onSelectHistory(): void;
   onSelectAnalytics(): void;
+  onSelectPlugins(): void;
   onOpenSettings?(anchor: HTMLElement): void;
   onOpenSearch?(): void;
 }
@@ -21,6 +22,7 @@ export function ActivityBar({
   onSelectSessions,
   onSelectHistory,
   onSelectAnalytics,
+  onSelectPlugins,
   onOpenSettings,
   onOpenSearch,
 }: ActivityBarProps) {
@@ -93,6 +95,22 @@ export function ActivityBar({
         }}
       >
         <Icon name="chart" />
+      </button>
+      <button
+        className={
+          'act-btn' + (sideOpen && sidebarView === 'plugins' ? ' on' : '')
+        }
+        title="Plugins"
+        aria-label="Plugin marketplace"
+        onClick={() => {
+          if (sideOpen && sidebarView === 'plugins') onToggleSide();
+          else {
+            if (!sideOpen) onToggleSide();
+            onSelectPlugins();
+          }
+        }}
+      >
+        <Icon name="cpu" />
       </button>
       <div className="act-spacer" />
       <button

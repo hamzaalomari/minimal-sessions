@@ -323,6 +323,18 @@ function registerIpc(): void {
   ipcMain.handle('app:ping', () => 'pong' as const);
   ipcMain.handle('app:platform', () => platform as Platform);
   ipcMain.handle('app:home-dir', () => homedir());
+  ipcMain.handle('app:open-external', (_e, url: string) => {
+    // Only open well-formed http(s) URLs from the renderer — anything else
+    // (file://, javascript:, custom schemes) is ignored to avoid surprises.
+    if (typeof url !== 'string') return;
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+      void shell.openExternal(url);
+    } catch {
+      // Malformed URL — ignore.
+    }
+  });
   ipcMain.handle('app:close-window', (e) => {
     BrowserWindow.fromWebContents(e.sender)?.close();
   });
