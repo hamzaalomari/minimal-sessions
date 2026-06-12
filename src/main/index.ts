@@ -8,7 +8,7 @@ import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, TokenUsage, Turn } from '@shared/types';
 import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
 import { branchFor, dirExists, gitInitSession, type GitInitSessionInput } from './fs';
-import { discoverCommands, setBuiltinCommandsDir } from './plugins';
+import { discoverCommands, discoverSkills, setBuiltinCommandsDir } from './plugins';
 import {
   listSupportedModels,
   realQuery,
@@ -350,6 +350,7 @@ function registerIpc(): void {
   // Slash command discovery for the composer's autocomplete. Cheap + cached
   // inside discoverCommands, so the renderer can call it on every '/' keystroke.
   ipcMain.handle('commands:list', (_e, cwd: string) => discoverCommands(cwd));
+  ipcMain.handle('skills:list', (_e, cwd: string) => discoverSkills(cwd));
 
   ipcMain.handle(
     'chat:send',

@@ -7,6 +7,7 @@ import {
   clearPluginCache,
   discoverCommands,
   discoverPlugins,
+  discoverSkills,
   setBuiltinCommandsDir,
 } from './plugins';
 
@@ -160,5 +161,61 @@ describe('discoverCommands', () => {
     } finally {
       setBuiltinCommandsDir(null);
     }
+  });
+});
+
+describe('discoverSkills', () => {
+  let workdir: string;
+
+  beforeEach(async () => {
+    clearPluginCache();
+    workdir = await mkdtemp(join(tmpdir(), 'ms-skills-'));
+  });
+
+  afterEach(async () => {
+    await rm(workdir, { recursive: true, force: true });
+  });
+
+  it('returns an empty list when no skills exist anywhere', () => {
+    expect(discoverSkills(workdir)).toEqual([]);
+  });
+
+  it('discovers a project skill with description', async () => {
+    const skill = join(workdir, '.claude', 'skills', 'review-prs');
+    await fs.mkdir(skill, { recursive: true });
+    await fs.writeFile(
+      join(skill, 'SKILL.md'),
+      '---\ndescription: Review pull requests\n---\nSkill body...',
+    );
+    const result = discoverSkills(workdir);
+    expect(result).toEqual([
+      { name: 'review-prs', description: 'Review pull requests', scope: 'project' },
+    ]);
+  });
+
+  it('namespaces plugin-bundled skills as pluginName:skillName', async () => {
+    const plugin = join(workdir, '.claude', 'plugins', 'sec-pack');
+    await fs.mkdir(join(plugin, '.claude-plugin'), { recursive: true });
+    await fs.writeFile(
+      join(plugin, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ name: 'sec-pack' }),
+    );
+    await fs.mkdir(join(plugin, 'skills', 'audit'), { recursive: true });
+    await fs.writeFile(
+      join(plugin, 'skills', 'audit', 'SKILL.md'),
+      '---\ndescription: Security audit skill\n---\nBody',
+    );
+    const result = discoverSkills(workdir);
+    expect(result).toContainEqual({
+      name: 'sec-pack:audit',
+      description: 'Security audit skill',
+      scope: 'plugin',
+    });
+  });
+
+  it('ignores skill directories without a SKILL.md file', async () => {
+    const skill = join(workdir, '.claude', 'skills', 'incomplete');
+    await fs.mkdir(skill, { recursive: true });
+    expect(discoverSkills(workdir)).toEqual([]);
   });
 });
