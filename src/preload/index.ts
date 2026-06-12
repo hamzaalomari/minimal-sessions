@@ -33,10 +33,28 @@ const api: Api = {
       ipcRenderer.on('app:request-open-search', listener);
       return () => ipcRenderer.removeListener('app:request-open-search', listener);
     },
+    onRequestToggleTerminal: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-toggle-terminal', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-toggle-terminal', listener);
+    },
     onRequestSelectTab: (handler) => {
       const listener = (_e: unknown, n: number): void => handler(n);
       ipcRenderer.on('app:request-select-tab', listener);
       return () => ipcRenderer.removeListener('app:request-select-tab', listener);
+    },
+    onRequestNavigateBack: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-navigate-back', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-navigate-back', listener);
+    },
+    onRequestNavigateForward: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-navigate-forward', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-navigate-forward', listener);
     },
   },
   fs: {
@@ -46,6 +64,9 @@ const api: Api = {
   },
   models: {
     list: () => ipcRenderer.invoke('models:list'),
+  },
+  commands: {
+    list: (cwd) => ipcRenderer.invoke('commands:list', cwd),
   },
   chat: {
     send: (sessionId, userText, globalSystemPrompt = '') => {
@@ -89,6 +110,27 @@ const api: Api = {
         addTokens ?? 0,
         addUsage ?? { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
       ),
+  },
+  terminal: {
+    open: (sessionId, cwd, cols, rows) =>
+      ipcRenderer.invoke('terminal:open', sessionId, cwd, cols, rows),
+    write: (sessionId, data) =>
+      ipcRenderer.invoke('terminal:write', sessionId, data),
+    resize: (sessionId, cols, rows) =>
+      ipcRenderer.invoke('terminal:resize', sessionId, cols, rows),
+    close: (sessionId) => ipcRenderer.invoke('terminal:close', sessionId),
+    onData: (handler) => {
+      const listener = (_e: unknown, sessionId: SessionId, data: string): void =>
+        handler(sessionId, data);
+      ipcRenderer.on('terminal:data', listener);
+      return () => ipcRenderer.removeListener('terminal:data', listener);
+    },
+    onExit: (handler) => {
+      const listener = (_e: unknown, sessionId: SessionId, code: number): void =>
+        handler(sessionId, code);
+      ipcRenderer.on('terminal:exit', listener);
+      return () => ipcRenderer.removeListener('terminal:exit', listener);
+    },
   },
 };
 

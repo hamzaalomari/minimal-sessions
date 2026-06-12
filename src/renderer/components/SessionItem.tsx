@@ -8,21 +8,32 @@ interface SessionItemProps {
   session: Session;
   active: boolean;
   renaming: boolean;
+  /** Sidebar status circle — 'empty' = no turns yet, 'busy' = streaming,
+   *  'idle' = finished and ready. Defaults to 'idle' for callers that don't
+   *  yet care (e.g. tests). */
+  status?: 'empty' | 'busy' | 'idle';
   onSelect(): void;
   onRenameCommit(name: string | null): void;
   onOpenMenu?(id: string, anchor: HTMLElement): void;
 }
 
+const STATUS_TITLE: Record<'empty' | 'busy' | 'idle', string> = {
+  empty: 'No messages yet',
+  busy: 'Claude is working…',
+  idle: 'Ready',
+};
+
 export function SessionItem({
   session: s,
   active,
   renaming,
+  status = 'idle',
   onSelect,
   onRenameCommit,
   onOpenMenu,
 }: SessionItemProps) {
   const m = getModel(s.model);
-  const dot = m?.color ?? 'var(--faint)';
+  const modelColor = m?.color ?? 'var(--faint)';
   const short = m?.short ?? s.model;
 
   const handleMenu = (e: MouseEvent<HTMLButtonElement>) => {
@@ -53,7 +64,11 @@ export function SessionItem({
       data-testid={`session-item-${s.id}`}
     >
       <div className="si-row">
-        <span className="si-dot" style={{ background: dot }} />
+        <span
+          className={`si-status si-status-${status}`}
+          title={STATUS_TITLE[status]}
+          aria-label={STATUS_TITLE[status]}
+        />
         {renaming ? (
           <input
             className="rename-input"
@@ -73,7 +88,7 @@ export function SessionItem({
       </div>
       <div className="si-path">{s.path}</div>
       <div className="si-meta">
-        <span className="si-model" style={{ color: dot }}>
+        <span className="si-model" style={{ color: modelColor }}>
           {short}
         </span>
         <span className="si-msgs">

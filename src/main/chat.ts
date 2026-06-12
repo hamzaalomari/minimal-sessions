@@ -22,6 +22,7 @@ import type { Block, Session, TokenUsage } from '@shared/types';
 import { ZERO_USAGE } from '@shared/types';
 import { parseMarkdown } from '@shared/markdown';
 import { pathForTool, summaryFor, toolKindFor } from '@shared/tool-display';
+import { discoverPlugins } from './plugins';
 
 /** Events the renderer subscribes to per assistant turn. */
 export type ChatEvent =
@@ -86,6 +87,17 @@ export async function runStreamingTurn(
   const addUsage: TokenUsage = { ...ZERO_USAGE };
   let sdkSessionId = resumeSdkSessionId ?? '';
   let started = false;
+  /** Flipped true once a `stream_event` text_delta has been forwarded to the
+   *  renderer. When true, the subsequent full `assistant` message skips its
+   *  own text-delta emit (the live overlay already has the text). When false
+   *  — e.g. the SDK didn't emit partials, or tests inject a non-streaming
+   *  mock — the assistant message emits text-delta as a fallback. */
+  let streamedAnyText = false;
+
+  // Pick up any installed Claude Code plugins so their slash commands, skills,
+  // hooks, and MCP servers come along for the ride. Discovery is cached briefly
+  // so this is effectively free across turns of the same session.
+  const plugins = discoverPlugins(session.path);
 
   try {
     const iter = query({
@@ -98,9 +110,14 @@ export async function runStreamingTurn(
           ? { systemPrompt: effectiveSystemPrompt }
           : {}),
         ...(abortController ? { abortController } : {}),
+        ...(plugins.length > 0 ? { plugins } : {}),
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
-        includePartialMessages: false,
+        // Stream content_block_delta events so the UI can render the response
+        // token-by-token. Without this the SDK only yields complete assistant
+        // messages, so the user sees a blank "loading" until the whole reply
+        // is built — perceived as a long wait even when generation has begun.
+        includePartialMessages: true,
       },
     });
 
@@ -120,6 +137,56 @@ export async function runStreamingTurn(
         continue;
       }
 
+      // Partial stream events — token-by-token deltas. We surface text deltas
+      // to the renderer immediately so the UI fills in as Claude generates;
+      // the eventual full `assistant` message still arrives later and builds
+      // the canonical `blocks` array (with markdown structure) for persistence.
+      if (msg.type === 'stream_event') {
+        const event = (msg as { event?: unknown }).event as
+          | { type?: string; delta?: { type?: string; text?: string } }
+          | undefined;
+        if (
+          event?.type === 'content_block_delta' &&
+          event.delta?.type === 'text_delta' &&
+          typeof event.delta.text === 'string' &&
+          event.delta.text
+        ) {
+          if (!started) {
+            modelShort = MODEL_SHORT(session.model);
+            emit({
+              type: 'turn-start',
+              turnId,
+              ...(modelShort ? { modelShort } : {}),
+            });
+            started = true;
+          }
+          streamedAnyText = true;
+          emit({ type: 'text-delta', text: event.delta.text });
+        }
+        continue;
+      }
+
+      // Local slash commands (e.g. /usage, /cost, /help, /clear) emit a
+      // `local_command_output` system message instead of going through the
+      // model. Surface its content as assistant text so the user sees the
+      // result inline in the transcript.
+      if (
+        msg.type === 'system' &&
+        (msg as { subtype?: string }).subtype === 'local_command_output'
+      ) {
+        const out = msg as { content?: string };
+        const text = out.content ?? '';
+        if (text) {
+          if (!started) {
+            emit({ type: 'turn-start', turnId });
+            started = true;
+          }
+          for (const b of parseMarkdown(text)) blocks.push(b);
+          emit({ type: 'text-delta', text });
+        }
+        continue;
+      }
+
       if (msg.type === 'assistant') {
         if (!started) {
           modelShort = MODEL_SHORT(session.model);
@@ -130,7 +197,14 @@ export async function runStreamingTurn(
           });
           started = true;
         }
-        applyAssistant(msg as SDKAssistantMessage, blocks, toolWinIndex, emit);
+        // If partials already streamed the text into the overlay, skip the
+        // re-emit (would double the visible text). Otherwise emit as before so
+        // non-streaming consumers (e.g. tests, SDK without partial support)
+        // still see live text. Either way `blocks` is rebuilt from the
+        // canonical full message for markdown-aware persistence + tool_use coalescing.
+        applyAssistant(msg as SDKAssistantMessage, blocks, toolWinIndex, emit, {
+          suppressTextDelta: streamedAnyText,
+        });
         continue;
       }
 
@@ -165,6 +239,12 @@ export async function runStreamingTurn(
     if (!started) {
       emit({ type: 'turn-start', turnId });
     }
+    // Empty-turn fallback. The SDK occasionally returns init + success with
+    // no content (e.g. when a slash command isn't recognised). Showing nothing
+    // looks like a UI bug; this is a quiet marker.
+    if (blocks.length === 0) {
+      blocks.push({ type: 'p', text: '(no response)' });
+    }
     const addTokens =
       addUsage.input + addUsage.output + addUsage.cacheCreation + addUsage.cacheRead;
     emit({ type: 'turn-stop', turnId, blocks, addTokens, addUsage, sdkSessionId });
@@ -190,6 +270,8 @@ export async function runStreamingTurn(
 interface MessageContent {
   type: string;
   text?: string;
+  /** Anthropic `thinking` blocks carry their content in `thinking`, not `text`. */
+  thinking?: string;
   id?: string;
   name?: string;
   input?: unknown;
@@ -203,16 +285,45 @@ function applyAssistant(
   blocks: Block[],
   toolWinIndex: Map<string, number>,
   emit: (event: ChatEvent) => void,
+  opts: { suppressTextDelta?: boolean } = {},
 ): void {
   const content = (msg.message as { content?: MessageContent[] }).content;
   if (!Array.isArray(content)) return;
   for (const part of content) {
     if (part.type === 'text' && typeof part.text === 'string' && part.text) {
       for (const b of parseMarkdown(part.text)) blocks.push(b);
-      emit({ type: 'text-delta', text: part.text });
+      if (!opts.suppressTextDelta) {
+        emit({ type: 'text-delta', text: part.text });
+      }
       continue;
     }
-    if (part.type === 'tool_use' && part.id && part.name) {
+    // Extended thinking — render as its own collapsible block. The SDK
+    // ships these as `{ type: 'thinking', thinking: '…' }` (not `text`).
+    // We don't emit text-delta for thinking content so it doesn't pollute
+    // the live overlay; the user sees it once turn-stop swaps blocks in.
+    if (part.type === 'thinking') {
+      const text = part.thinking ?? part.text ?? '';
+      if (text) blocks.push({ type: 'thinking', text });
+      continue;
+    }
+    if (part.type !== 'tool_use') {
+      // Forward-compatibility: salvage any text-bearing block we don't know
+      // about (e.g. future SDK block types) so the user always sees content.
+      const salvage =
+        typeof part.text === 'string' && part.text
+          ? part.text
+          : typeof part.content === 'string' && part.content
+            ? part.content
+            : '';
+      if (salvage) {
+        for (const b of parseMarkdown(salvage)) blocks.push(b);
+        emit({ type: 'text-delta', text: salvage });
+      } else {
+        console.warn('[chat] unhandled assistant content block type:', part.type);
+      }
+      continue;
+    }
+    if (part.id && part.name) {
       const kind = toolKindFor(part.name);
       const path = pathForTool(part.name, part.input);
 

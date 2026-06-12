@@ -37,6 +37,7 @@ const PATHS: Record<string, string> = {
   sliders: 'M4 6h11M19 6h1M4 12h1M9 12h11M4 18h7M15 18h5|M17 4v4M7 10v4M13 16v4',
   alert: 'M12 9v4M12 17h.01|M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z',
   key: 'M15 7a4 4 0 1 1-3.46 6L7 17l-2 2-3-3 8-8a4 4 0 0 1 5-1z',
+  chart: 'M5 20h14|M7 16v4M12 11v9M17 7v13',
 };
 
 export type IconName = keyof typeof PATHS;

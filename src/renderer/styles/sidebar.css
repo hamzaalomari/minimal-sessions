@@ -2,13 +2,42 @@
 
 .sidebar {
   grid-area: side;
-  width: 268px;
+  /* Width is driven by the persisted --side-width var so the resize handle
+   * and the collapse toggle both write through the same channel. */
+  width: var(--side-width, 268px);
   background: var(--side);
   border-right: 1px solid var(--border-soft);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   transition: width 0.18s ease;
+}
+
+/* While the user is dragging the resize handle, freeze any width transition
+ * so the sidebar tracks the cursor frame-for-frame instead of lagging. */
+body.is-resizing-side .sidebar {
+  transition: none;
+}
+
+/* Drag handle that lives between the sidebar and the main pane. Absolutely
+ * positioned inside .app so it overlaps the sidebar's right border. The 7px
+ * width gives a comfortable grab target, centred on the actual border line. */
+.side-resize {
+  position: absolute;
+  top: 40px;
+  bottom: 28px;
+  left: calc(52px + var(--side-width, 268px));
+  width: 7px;
+  margin-left: -3px;
+  cursor: ew-resize;
+  z-index: 50;
+  background: transparent;
+  transition: background 0.1s;
+}
+
+.side-resize:hover,
+body.is-resizing-side .side-resize {
+  background: color-mix(in oklch, var(--accent) 45%, transparent);
 }
 
 .app.side-collapsed .sidebar {
@@ -130,6 +159,39 @@
   height: 8px;
   border-radius: 50%;
   flex: none;
+}
+
+/* Tri-state status circle: empty (no turns), busy (streaming), idle (ready). */
+.si-status {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  border: 1.5px solid var(--faint);
+  background: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.si-status-empty {
+  background: transparent;
+  border-color: var(--faint);
+}
+
+.si-status-busy {
+  background: #e5b35a;
+  border-color: #c8973f;
+  box-shadow: 0 0 0 3px color-mix(in oklch, #e5b35a 22%, transparent);
+  animation: si-status-pulse 1.4s ease-in-out infinite;
+}
+
+.si-status-idle {
+  background: #6bbf86;
+  border-color: #4b9669;
+}
+
+@keyframes si-status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
 .si-name {
@@ -349,4 +411,215 @@
   outline: none;
   width: 100%;
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 14%, transparent);
+}
+
+/* ───── Analytics view ───── */
+.sidebar.analytics {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.analytics-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.an-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.an-card {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.an-card-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+}
+
+.an-card-value {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.an-section-hd {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--faint);
+  margin-bottom: 10px;
+}
+
+.an-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.an-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.an-row-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.an-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.an-row-label {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.an-row-sub {
+  font-size: 11px;
+  color: var(--faint);
+  flex: none;
+}
+
+.an-row-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--dim);
+  flex: none;
+}
+
+.an-cost {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.an-bar {
+  height: 5px;
+  background: var(--code-bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.an-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.2s;
+  min-width: 2px;
+}
+
+.an-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.an-table td {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.an-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.an-cat {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.an-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+  padding-left: 12px;
+  white-space: nowrap;
+}
+
+.an-session {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 8px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+  font-size: 12.5px;
+  transition: background 0.1s;
+}
+
+.an-session:hover {
+  background: var(--hover);
+}
+
+.an-session:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--accent) 70%, transparent);
+  outline-offset: -2px;
+}
+
+/* Range selector at the top of the Analytics view. Reuses .seg styling
+ * (light pill segmented control). */
+.an-range {
+  width: 100%;
+  justify-content: stretch;
+}
+
+.an-range button {
+  flex: 1;
+  padding: 4px 0;
+}
+
+.an-note {
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1.45;
+  padding: 10px 12px;
+  background: var(--code-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+}
+
+.an-note strong {
+  color: var(--text);
 }

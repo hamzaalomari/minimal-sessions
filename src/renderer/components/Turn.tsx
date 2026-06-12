@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Turn as TurnT } from '@shared/types';
 import { Block } from './Block';
 import { Icon } from './Icon';
@@ -8,7 +9,10 @@ interface TurnProps {
   typing?: boolean;
 }
 
-export function Turn({ turn, typing = false }: TurnProps) {
+// Memoized so a stable turn doesn't re-render on every keystroke / store
+// update. Persisted turns hold the same reference across renders, so this
+// short-circuits the whole tree below them.
+export const Turn = memo(function Turn({ turn, typing = false }: TurnProps) {
   const isUser = turn.role === 'user';
   return (
     <div className={'turn ' + (isUser ? 'user' : 'assistant')} data-testid={`turn-${turn.id}`}>
@@ -35,4 +39,4 @@ export function Turn({ turn, typing = false }: TurnProps) {
       </div>
     </div>
   );
-}
+});

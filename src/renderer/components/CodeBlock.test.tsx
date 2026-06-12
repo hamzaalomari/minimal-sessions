@@ -12,8 +12,8 @@ describe('<CodeBlock>', () => {
     const { container } = render(<CodeBlock lang="javascript" code='const greet = "hi"' />);
     const body = container.querySelector('.code-body');
     expect(body).toHaveTextContent('const greet = "hi"');
-    expect(body?.querySelector('.c-key')).toHaveTextContent('const');
-    expect(body?.querySelector('.c-str')).toHaveTextContent('"hi"');
+    expect(body?.querySelector('.hljs-keyword')).toHaveTextContent('const');
+    expect(body?.querySelector('.hljs-string')).toHaveTextContent('"hi"');
   });
 
   it('shows a copy icon in the header', () => {

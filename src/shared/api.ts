@@ -34,6 +34,15 @@ export interface SdkModel {
   description: string;
 }
 
+/** A discoverable slash command — returned by `api.commands.list()`. Plugin
+ *  commands are namespaced as `pluginName:cmdName` matching the SDK's
+ *  invocation format. */
+export interface SlashCommand {
+  name: string;
+  description?: string;
+  scope: 'user' | 'project' | 'plugin';
+}
+
 /** Events streamed back from `api.chat.send()`. */
 export type ChatEvent =
   | { type: 'turn-start'; turnId: string; modelShort?: string }
@@ -74,8 +83,14 @@ export interface Api {
     onRequestOpenSettings(handler: () => void): Unsubscribe;
     /** Cmd/Ctrl+F — switch the sidebar to the Search view and focus the input. */
     onRequestOpenSearch(handler: () => void): Unsubscribe;
+    /** Cmd/Ctrl+J — toggle the embedded terminal panel for the active session. */
+    onRequestToggleTerminal(handler: () => void): Unsubscribe;
     /** Cmd/Ctrl+1..9 — focus the Nth open tab. Handler is a no-op when out of range. */
     onRequestSelectTab(handler: (n: number) => void): Unsubscribe;
+    /** Mouse-button-4 / Cmd/Ctrl+Alt+Left — pop the previous nav state. */
+    onRequestNavigateBack(handler: () => void): Unsubscribe;
+    /** Mouse-button-5 / Cmd/Ctrl+Alt+Right — re-push a popped nav state. */
+    onRequestNavigateForward(handler: () => void): Unsubscribe;
   };
   fs: {
     /** Native OS folder picker. Resolves to the picked absolute path, or null if cancelled. */
@@ -88,6 +103,12 @@ export interface Api {
   models: {
     /** All models the locally-installed Claude SDK advertises. Cached per session. */
     list(): Promise<SdkModel[]>;
+  };
+  commands: {
+    /** Slash commands available for the session at `cwd`. Includes standalone
+     *  files (~/.claude/commands, project commands) and plugin-bundled commands
+     *  (namespaced `pluginName:cmdName`). Cached in main for ~30s. */
+    list(cwd: string): Promise<SlashCommand[]>;
   };
   chat: {
     /**
@@ -133,6 +154,25 @@ export interface Api {
       addTokens?: number,
       addUsage?: TokenUsage,
     ): Promise<void>;
+  };
+  terminal: {
+    /** Spawn (or reuse) a PTY for this session with cwd = session.path. */
+    open(
+      sessionId: SessionId,
+      cwd: string,
+      cols: number,
+      rows: number,
+    ): Promise<{ reused: boolean }>;
+    /** Forward keystrokes / paste data to the PTY. */
+    write(sessionId: SessionId, data: string): Promise<void>;
+    /** Tell the PTY about new viewport size. */
+    resize(sessionId: SessionId, cols: number, rows: number): Promise<void>;
+    /** Kill the PTY (e.g. tab closed, session deleted, user clicked trash). */
+    close(sessionId: SessionId): Promise<void>;
+    /** Subscribe to PTY output for any session; filter by `sessionId` inside. */
+    onData(handler: (sessionId: SessionId, data: string) => void): Unsubscribe;
+    /** Subscribe to PTY exit. `code` is the exit status (0 = clean). */
+    onExit(handler: (sessionId: SessionId, code: number) => void): Unsubscribe;
   };
 }
 

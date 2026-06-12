@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Session } from '@shared/types';
+import { AnalyticsView } from './AnalyticsView';
 import { Icon } from './Icon';
 import { SessionItem } from './SessionItem';
 import { useSessions } from '../state/sessions';
@@ -23,6 +24,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
     activeId,
     renamingId,
     searchQuery,
+    streamingIds,
     selectSession,
     setShowNew,
     setSidebarView,
@@ -38,6 +40,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
       activeId: s.activeId,
       renamingId: s.renamingId,
       searchQuery: s.searchQuery,
+      streamingIds: s.streamingIds,
       selectSession: s.selectSession,
       setShowNew: s.setShowNew,
       setSidebarView: s.setSidebarView,
@@ -47,6 +50,12 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
       purgeSession: s.purgeSession,
     })),
   );
+
+  const statusOf = (s: Session): 'empty' | 'busy' | 'idle' => {
+    if (streamingIds.includes(s.id)) return 'busy';
+    if (s.turns.length === 0) return 'empty';
+    return 'idle';
+  };
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -119,6 +128,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
                   session={s}
                   active={s.id === activeId}
                   renaming={s.id === renamingId}
+                  status={statusOf(s)}
                   onSelect={() => selectSession(s.id)}
                   onRenameCommit={(name) => commitRename(s.id, name)}
                   onOpenMenu={onOpenMenu}
@@ -181,6 +191,10 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
         </div>
       </aside>
     );
+  }
+
+  if (sidebarView === 'analytics') {
+    return <AnalyticsView />;
   }
 
   if (sidebarView === 'history') {
@@ -273,6 +287,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
             session={s}
             active={s.id === activeId}
             renaming={s.id === renamingId}
+            status={statusOf(s)}
             onSelect={() => selectSession(s.id)}
             onRenameCommit={(name) => commitRename(s.id, name)}
             onOpenMenu={onOpenMenu}

@@ -32,6 +32,8 @@ export type Block =
       diff?: string;
       defaultOpen?: boolean;
     }
+  /** Extended thinking content from the model — collapsed by default. */
+  | { type: 'thinking'; text: string }
   | { type: 'error'; message: string };
 
 export interface Turn {
@@ -40,6 +42,10 @@ export interface Turn {
   blocks: Block[];
   modelShort?: string;
   createdAt: number;
+  /** Per-turn token usage. Present only on assistant turns from the SDK
+   *  result message, and only on turns created after the per-turn usage
+   *  migration shipped — older rows have no data here. */
+  usage?: TokenUsage;
 }
 
 /**

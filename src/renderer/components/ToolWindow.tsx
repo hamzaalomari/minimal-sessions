@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ToolKind } from '@shared/types';
 import { Icon, type IconName } from './Icon';
+import { renderAnsi } from '../lib/ansi';
 import { highlightNodes } from '../lib/highlight';
 import { DiffView } from './DiffView';
 
@@ -92,9 +93,9 @@ export function ToolWindow({
               {diff && <DiffView text={diff} />}
               {code &&
                 (kind === 'bash' ? (
-                  <pre className="tw-term">{code}</pre>
+                  <pre className="tw-term">{renderAnsi(code)}</pre>
                 ) : (
-                  <pre className="tw-code">{highlightNodes(code)}</pre>
+                  <pre className="tw-code">{highlightNodes(code, 'plaintext')}</pre>
                 ))}
             </>
           )}

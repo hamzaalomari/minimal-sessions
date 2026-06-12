@@ -84,7 +84,7 @@
 }
 
 .composer-inner {
-  max-width: 760px;
+  max-width: var(--chat-max-width, 760px);
   margin: 0 auto;
   padding: 0 40px;
 }
@@ -118,8 +118,31 @@
   font-size: 14.5px;
   line-height: 1.5;
   padding: 14px 16px 4px;
-  max-height: 180px;
+  /* Auto-grow ceiling — keeps the JS in Composer.tsx and the CSS in sync. */
+  max-height: 400px;
   min-height: 24px;
+  /* Thin Firefox scrollbar; webkit gets a custom track below. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--border) 70%, transparent) transparent;
+}
+
+.composer-ta::-webkit-scrollbar {
+  width: 4px;
+}
+
+.composer-ta::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.composer-ta::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--border) 80%, transparent);
+  border-radius: 2px;
+}
+
+.composer-ta:not(:hover):not(:focus)::-webkit-scrollbar-thumb {
+  /* Fade the scrollbar to nothing when the input is idle — re-appears on
+   * hover/focus so the user can still see how much they've typed. */
+  background: transparent;
 }
 
 .composer-ta::placeholder {
@@ -225,3 +248,84 @@
   fill: currentColor;
   stroke: none;
 }
+
+/* ───── Terminal-style composer (opt-in via Tweaks → Composer style) ───── */
+body[data-composer='terminal'] .composer {
+  padding: 4px 0 14px;
+  background: linear-gradient(to top, var(--canvas) 50%, transparent);
+}
+
+body[data-composer='terminal'] .composer-box {
+  border-radius: 6px;
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, var(--border));
+  background: var(--code-bg);
+  box-shadow: none;
+  position: relative;
+}
+
+body[data-composer='terminal'] .composer-box.focus {
+  border-color: color-mix(in oklch, var(--accent) 80%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in oklch, var(--accent) 18%, transparent),
+    inset 0 0 0 1px color-mix(in oklch, var(--accent) 12%, transparent);
+}
+
+/* Leading prompt caret — sits to the left of the textarea, visually
+ * indicating a terminal-like input. Uses absolute positioning so it
+ * doesn't disturb the textarea sizing. */
+body[data-composer='terminal'] .composer-box::before {
+  content: '❯';
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: color-mix(in oklch, var(--accent) 75%, var(--text));
+  pointer-events: none;
+  z-index: 1;
+}
+
+body[data-composer='terminal'] .composer-ta {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  padding: 11px 14px 6px 32px;
+  background: transparent;
+  color: var(--text);
+}
+
+body[data-composer='terminal'] .composer-ta::placeholder {
+  font-family: var(--mono);
+  color: color-mix(in oklch, var(--faint) 70%, transparent);
+}
+
+body[data-composer='terminal'] .composer-foot {
+  padding: 5px 8px 7px 10px;
+  border-top: 1px dashed color-mix(in oklch, var(--border) 60%, transparent);
+}
+
+body[data-composer='terminal'] .cf-btn {
+  border-radius: 4px;
+  height: 26px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  border-color: color-mix(in oklch, var(--border) 80%, transparent);
+}
+
+body[data-composer='terminal'] .cf-hint {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+body[data-composer='terminal'] .send-btn {
+  border-radius: 4px;
+  width: 30px;
+  height: 28px;
+}
+
+/* Skill-mode banner picks up the terminal styling too. */
+body[data-composer='terminal'] .composer-mode {
+  font-family: var(--mono);
+  padding-left: 32px;
+}
+

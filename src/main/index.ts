@@ -8,6 +8,7 @@ import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, TokenUsage, Turn } from '@shared/types';
 import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
 import { branchFor, dirExists } from './fs';
+import { discoverCommands, setBuiltinCommandsDir } from './plugins';
 import {
   listSupportedModels,
   realQuery,
@@ -15,6 +16,15 @@ import {
   type ChatEvent,
   type SdkModel,
 } from './chat';
+import {
+  closeTerminal,
+  disposeAllTerminals,
+  onTerminalData,
+  onTerminalExit,
+  openTerminal,
+  resizeTerminal,
+  writeTerminal,
+} from './terminal';
 import { SEED_SESSIONS } from '@shared/seed';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -76,6 +86,19 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' };
   });
 
+  // Browser-style back/forward — fired by the OS for mouse buttons 4/5
+  // (the "back" / "forward" thumb buttons) and by the equivalent browser
+  // navigation keys on each platform.
+  (win.webContents as unknown as {
+    on(channel: string, listener: (e: unknown, cmd: string) => void): void;
+  }).on('app-command', (_e, cmd) => {
+    if (cmd === 'browser-backward') {
+      win.webContents.send('app:request-navigate-back');
+    } else if (cmd === 'browser-forward') {
+      win.webContents.send('app:request-navigate-forward');
+    }
+  });
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
@@ -108,7 +131,7 @@ function buildMenu(): Menu {
   };
   const toggleSidebarItem: MenuItemConstructorOptions = {
     label: 'Toggle Sidebar',
-    accelerator: 'CmdOrCtrl+\\',
+    accelerator: 'CmdOrCtrl+B',
     click: sendToFocused('app:request-toggle-sidebar'),
   };
   const preferencesItem: MenuItemConstructorOptions = {
@@ -120,6 +143,23 @@ function buildMenu(): Menu {
     label: 'Find Session…',
     accelerator: 'CmdOrCtrl+F',
     click: sendToFocused('app:request-open-search'),
+  };
+  const toggleTerminalItem: MenuItemConstructorOptions = {
+    label: 'Toggle Terminal',
+    accelerator: 'CmdOrCtrl+J',
+    click: sendToFocused('app:request-toggle-terminal'),
+  };
+  // Browser-style navigation through session/sidebar history. Mouse buttons
+  // 4/5 also dispatch these via the app-command handler in createWindow().
+  const navigateBackItem: MenuItemConstructorOptions = {
+    label: 'Navigate Back',
+    accelerator: 'CmdOrCtrl+Alt+Left',
+    click: sendToFocused('app:request-navigate-back'),
+  };
+  const navigateForwardItem: MenuItemConstructorOptions = {
+    label: 'Navigate Forward',
+    accelerator: 'CmdOrCtrl+Alt+Right',
+    click: sendToFocused('app:request-navigate-forward'),
   };
   const selectTabItems: MenuItemConstructorOptions[] = Array.from(
     { length: 9 },
@@ -187,6 +227,10 @@ function buildMenu(): Menu {
       label: 'View',
       submenu: [
         toggleSidebarItem,
+        toggleTerminalItem,
+        { type: 'separator' },
+        navigateBackItem,
+        navigateForwardItem,
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
@@ -246,6 +290,10 @@ function registerIpc(): void {
     modelsCache = await listSupportedModels();
     return modelsCache;
   });
+
+  // Slash command discovery for the composer's autocomplete. Cheap + cached
+  // inside discoverCommands, so the renderer can call it on every '/' keystroke.
+  ipcMain.handle('commands:list', (_e, cwd: string) => discoverCommands(cwd));
 
   ipcMain.handle(
     'chat:send',
@@ -333,6 +381,34 @@ function registerIpc(): void {
       addUsage?: TokenUsage,
     ) => getDb().appendTurn(sessionId, turn, addTokens ?? 0, addUsage),
   );
+
+  ipcMain.handle(
+    'terminal:open',
+    (_e, sessionId: SessionId, cwd: string, cols: number, rows: number) =>
+      openTerminal({ sessionId, cwd, cols, rows }),
+  );
+  ipcMain.handle('terminal:write', (_e, sessionId: SessionId, data: string) =>
+    writeTerminal(sessionId, data),
+  );
+  ipcMain.handle(
+    'terminal:resize',
+    (_e, sessionId: SessionId, cols: number, rows: number) =>
+      resizeTerminal(sessionId, cols, rows),
+  );
+  ipcMain.handle('terminal:close', (_e, sessionId: SessionId) =>
+    closeTerminal(sessionId),
+  );
+
+  onTerminalData((sessionId, data) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('terminal:data', sessionId, data);
+    }
+  });
+  onTerminalExit((sessionId, code) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('terminal:exit', sessionId, code);
+    }
+  });
 }
 
 app.whenReady().then(() => {
@@ -341,6 +417,16 @@ app.whenReady().then(() => {
   if (!app.isPackaged && isMac && app.dock) {
     app.dock.setIcon(join(__dirname, '..', '..', 'resources', 'icon.png'));
   }
+  // Tell the plugin discovery where our bundled slash commands live. In
+  // dev that's `<repo>/resources/commands` (relative to the compiled main
+  // at out/main/index.js); in a packaged build electron-builder copies
+  // the same folder to `<resources>/commands` via the `extraResources`
+  // entry in package.json, exposed at runtime as `process.resourcesPath`.
+  const builtinCommands = app.isPackaged
+    ? join(process.resourcesPath, 'commands')
+    : join(__dirname, '..', '..', 'resources', 'commands');
+  setBuiltinCommandsDir(builtinCommands);
+
   sessionsDb = openSessionsDb(join(app.getPath('userData'), 'sessions.db'));
   seedIfEmpty(sessionsDb, SEED_SESSIONS);
   registerIpc();
@@ -357,6 +443,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  disposeAllTerminals();
   sessionsDb?.close();
   sessionsDb = null;
 });

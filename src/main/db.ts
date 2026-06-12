@@ -22,12 +22,16 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS turns (
-  id          TEXT PRIMARY KEY,
-  session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-  role        TEXT NOT NULL,
-  blocks_json TEXT NOT NULL,
-  model_short TEXT,
-  created_at  INTEGER NOT NULL
+  id             TEXT PRIMARY KEY,
+  session_id     TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  role           TEXT NOT NULL,
+  blocks_json    TEXT NOT NULL,
+  model_short    TEXT,
+  created_at     INTEGER NOT NULL,
+  tokens_input   INTEGER NOT NULL DEFAULT 0,
+  tokens_output  INTEGER NOT NULL DEFAULT 0,
+  tokens_cache_w INTEGER NOT NULL DEFAULT 0,
+  tokens_cache_r INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS turns_session_order ON turns (session_id, created_at);
@@ -57,6 +61,10 @@ interface TurnRow {
   blocks_json: string;
   model_short: string | null;
   created_at: number;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_cache_w: number;
+  tokens_cache_r: number;
 }
 
 export interface CreateSessionInput {
@@ -129,6 +137,16 @@ function rowToTurn(row: TurnRow): Turn {
     createdAt: row.created_at,
   };
   if (row.model_short) turn.modelShort = row.model_short;
+  // Only attach usage when at least one category is non-zero — legacy rows
+  // pre-migration default to all-zeros and would otherwise pollute the
+  // time-filtered analytics view.
+  const ti = row.tokens_input ?? 0;
+  const to = row.tokens_output ?? 0;
+  const tw = row.tokens_cache_w ?? 0;
+  const tr = row.tokens_cache_r ?? 0;
+  if (ti || to || tw || tr) {
+    turn.usage = { input: ti, output: to, cacheCreation: tw, cacheRead: tr };
+  }
   return turn;
 }
 
@@ -148,7 +166,10 @@ interface Statements {
   deleteSession: Statement<[string]>;
   listTurnsForSession: Statement<[string], TurnRow>;
   listAllTurns: Statement<[], TurnRow>;
-  insertTurn: Statement<[string, string, 'user' | 'assistant', string, string | null, number]>;
+  insertTurn: Statement<[
+    string, string, 'user' | 'assistant', string, string | null, number,
+    number, number, number, number,
+  ]>;
   bumpTokensAndTouch: Statement<[
     number, number, number, number, number, number, string,
   ]>;
@@ -182,6 +203,23 @@ export function openSessionsDb(filename: string): SessionsDb {
   }
   if (!has('tokens_cache_r')) {
     db.exec('ALTER TABLE sessions ADD COLUMN tokens_cache_r INTEGER NOT NULL DEFAULT 0');
+  }
+  // Per-turn usage columns — added so the analytics view can date-filter.
+  const turnCols = db.prepare('PRAGMA table_info(turns)').all() as Array<{
+    name: string;
+  }>;
+  const turnHas = (name: string): boolean => turnCols.some((c) => c.name === name);
+  if (!turnHas('tokens_input')) {
+    db.exec('ALTER TABLE turns ADD COLUMN tokens_input INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!turnHas('tokens_output')) {
+    db.exec('ALTER TABLE turns ADD COLUMN tokens_output INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!turnHas('tokens_cache_w')) {
+    db.exec('ALTER TABLE turns ADD COLUMN tokens_cache_w INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!turnHas('tokens_cache_r')) {
+    db.exec('ALTER TABLE turns ADD COLUMN tokens_cache_r INTEGER NOT NULL DEFAULT 0');
   }
 
   const stmts: Statements = {
@@ -219,8 +257,10 @@ export function openSessionsDb(filename: string): SessionsDb {
       'SELECT * FROM turns ORDER BY session_id, created_at ASC, id ASC',
     ) as Statement<[], TurnRow>,
     insertTurn: db.prepare(
-      `INSERT INTO turns (id, session_id, role, blocks_json, model_short, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO turns
+         (id, session_id, role, blocks_json, model_short, created_at,
+          tokens_input, tokens_output, tokens_cache_w, tokens_cache_r)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ),
     bumpTokensAndTouch: db.prepare(
       `UPDATE sessions
@@ -247,6 +287,10 @@ export function openSessionsDb(filename: string): SessionsDb {
         JSON.stringify(turn.blocks),
         turn.modelShort ?? null,
         turn.createdAt,
+        addUsage.input,
+        addUsage.output,
+        addUsage.cacheCreation,
+        addUsage.cacheRead,
       );
       stmts.bumpTokensAndTouch.run(
         addTokens,

@@ -8,8 +8,32 @@
   scroll-behavior: smooth;
 }
 
+/* Inline links in transcript content — accent-tinted with a subtle underline
+ * that thickens on hover. Electron's setWindowOpenHandler intercepts the
+ * `target="_blank"` click and routes it to the OS default browser. */
+.transcript a {
+  color: color-mix(in oklch, var(--accent) 75%, var(--text));
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--accent) 50%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  word-break: break-word;
+}
+
+.transcript a:hover {
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1.5px;
+}
+
+.transcript a:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .transcript-inner {
-  max-width: 760px;
+  max-width: var(--chat-max-width, 760px);
   margin: 0 auto;
   padding: 40px 40px 24px;
 }
@@ -205,7 +229,7 @@
 /* ───── Code block ───── */
 .code-block {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--code-size);
   line-height: 1.65;
   background: var(--code-bg);
   border: 1px solid var(--border-soft);
@@ -255,6 +279,143 @@ body[data-theme='dark'] .tw-code .c-str {
   font-style: italic;
 }
 
+/* ───── highlight.js theme — mapped to our accent palette so it tracks
+ * theme + accent presets. Light-mode values; dark-mode overrides below. */
+.code-body .hljs,
+.tw-code .hljs {
+  color: var(--text);
+  background: transparent;
+}
+
+.code-body .hljs-keyword,
+.code-body .hljs-selector-tag,
+.code-body .hljs-built_in,
+.code-body .hljs-meta,
+.tw-code .hljs-keyword,
+.tw-code .hljs-selector-tag,
+.tw-code .hljs-built_in,
+.tw-code .hljs-meta {
+  color: color-mix(in oklch, var(--accent) 70%, var(--text));
+  font-weight: 600;
+}
+
+.code-body .hljs-string,
+.code-body .hljs-attr,
+.code-body .hljs-symbol,
+.code-body .hljs-quote,
+.tw-code .hljs-string,
+.tw-code .hljs-attr,
+.tw-code .hljs-symbol,
+.tw-code .hljs-quote {
+  color: #6a9b5c;
+}
+
+.code-body .hljs-number,
+.code-body .hljs-literal,
+.code-body .hljs-regexp,
+.tw-code .hljs-number,
+.tw-code .hljs-literal,
+.tw-code .hljs-regexp {
+  color: #b6743a;
+}
+
+.code-body .hljs-title,
+.code-body .hljs-name,
+.code-body .hljs-section,
+.code-body .hljs-function .hljs-title,
+.tw-code .hljs-title,
+.tw-code .hljs-name,
+.tw-code .hljs-section,
+.tw-code .hljs-function .hljs-title {
+  color: #3c7eb8;
+  font-weight: 600;
+}
+
+.code-body .hljs-variable,
+.code-body .hljs-template-variable,
+.code-body .hljs-attribute,
+.tw-code .hljs-variable,
+.tw-code .hljs-template-variable,
+.tw-code .hljs-attribute {
+  color: #a35aa5;
+}
+
+.code-body .hljs-comment,
+.code-body .hljs-formula,
+.tw-code .hljs-comment,
+.tw-code .hljs-formula {
+  color: var(--faint);
+  font-style: italic;
+}
+
+.code-body .hljs-tag,
+.tw-code .hljs-tag {
+  color: #5b9a78;
+}
+
+.code-body .hljs-addition,
+.tw-code .hljs-addition,
+.tw-term .ansi-green {
+  color: #5b9a78;
+}
+
+.code-body .hljs-deletion,
+.tw-code .hljs-deletion,
+.tw-term .ansi-red {
+  color: #c4663f;
+}
+
+body[data-theme='dark'] .code-body .hljs-string,
+body[data-theme='dark'] .code-body .hljs-attr,
+body[data-theme='dark'] .code-body .hljs-symbol,
+body[data-theme='dark'] .code-body .hljs-quote,
+body[data-theme='dark'] .tw-code .hljs-string,
+body[data-theme='dark'] .tw-code .hljs-attr,
+body[data-theme='dark'] .tw-code .hljs-symbol,
+body[data-theme='dark'] .tw-code .hljs-quote {
+  color: #9bc88a;
+}
+
+body[data-theme='dark'] .code-body .hljs-number,
+body[data-theme='dark'] .tw-code .hljs-number {
+  color: #e0a774;
+}
+
+body[data-theme='dark'] .code-body .hljs-title,
+body[data-theme='dark'] .code-body .hljs-name,
+body[data-theme='dark'] .code-body .hljs-section,
+body[data-theme='dark'] .tw-code .hljs-title,
+body[data-theme='dark'] .tw-code .hljs-name,
+body[data-theme='dark'] .tw-code .hljs-section {
+  color: #6ab1e8;
+}
+
+body[data-theme='dark'] .code-body .hljs-variable,
+body[data-theme='dark'] .code-body .hljs-template-variable,
+body[data-theme='dark'] .code-body .hljs-attribute,
+body[data-theme='dark'] .tw-code .hljs-variable,
+body[data-theme='dark'] .tw-code .hljs-template-variable,
+body[data-theme='dark'] .tw-code .hljs-attribute {
+  color: #c992c8;
+}
+
+/* ───── ANSI / terminal output color classes. Used both by ansi_up output
+ * and the git/npm/test pattern fallback in lib/ansi.tsx. */
+.tw-term .ansi-output {
+  color: inherit;
+}
+
+.tw-term .ansi-cyan { color: #3c9aa0; }
+.tw-term .ansi-magenta { color: #a35aa5; }
+.tw-term .ansi-yellow { color: #c89a3c; }
+.tw-term .ansi-faint { color: var(--faint); }
+
+body[data-theme='dark'] .tw-term .ansi-green { color: #9bc88a; }
+body[data-theme='dark'] .tw-term .ansi-red { color: #e08a6b; }
+body[data-theme='dark'] .tw-term .ansi-cyan { color: #76c4ca; }
+body[data-theme='dark'] .tw-term .ansi-magenta { color: #c992c8; }
+body[data-theme='dark'] .tw-term .ansi-yellow { color: #e0c074; }
+
 /* ───── Tool line (single-line variant) ───── */
 .tool-line {
   display: flex;
@@ -265,7 +426,7 @@ body[data-theme='dark'] .tw-code .c-str {
   background: var(--code-bg);
   border: 1px solid var(--border-soft);
   border-radius: 10px;
-  font-size: 12.5px;
+  font-size: var(--code-size);
   color: var(--dim);
 }
 
@@ -283,7 +444,7 @@ body[data-theme='dark'] .tw-code .c-str {
 
 .tool-line .tl-path {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--code-size);
   color: var(--faint);
 }
 
@@ -338,14 +499,14 @@ body[data-theme='dark'] .tool-line .tl-tag {
 }
 
 .tw-verb {
-  font-size: 12.5px;
+  font-size: var(--code-size);
   font-weight: 600;
   flex: none;
 }
 
 .tw-path {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--code-size);
   color: var(--faint);
   white-space: nowrap;
   overflow: hidden;
@@ -390,7 +551,7 @@ body[data-theme='dark'] .tw-tag.ok {
 
 .tw-summary {
   font-family: var(--ui);
-  font-size: 12px;
+  font-size: var(--code-size);
   color: var(--dim);
   padding: 0 13px 9px 38px;
   margin-top: -3px;
@@ -403,7 +564,7 @@ body[data-theme='dark'] .tw-tag.ok {
 .tw-code,
 .tw-term {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--code-size);
   line-height: 1.6;
   margin: 0;
   padding: 12px 15px;
@@ -436,7 +597,7 @@ body[data-theme='dark'] .tw-tag.ok {
   margin: 0;
   padding: 10px 15px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--code-size);
   color: var(--dim);
   max-height: 280px;
   overflow-y: auto;
@@ -461,16 +622,9 @@ body[data-density='compact'] .toolwin-hd {
   gap: 7px;
 }
 
-body[data-density='compact'] .tw-verb {
-  font-size: 11.5px;
-}
-
-body[data-density='compact'] .tw-path {
-  font-size: 10.5px;
-}
-
+/* .tw-verb, .tw-path, .tw-summary font-size is routed through --code-size,
+ * which is itself density-aware. Compact only tightens padding here. */
 body[data-density='compact'] .tw-summary {
-  font-size: 10.5px;
   padding: 0 10px 6px 32px;
 }
 
@@ -487,7 +641,6 @@ body[data-density='compact'] .tw-tag {
 
 body[data-density='compact'] .tw-paths {
   padding: 6px 12px;
-  font-size: 11px;
   max-height: 220px;
 }
 
@@ -495,22 +648,22 @@ body[data-density='compact'] .tw-paths li {
   padding: 2px 0;
 }
 
+/* tw-code/tw-term and tool-line font-size are routed through --code-size,
+ * which is itself density-aware (set in tweaks.ts), so no override here. */
 body[data-density='compact'] .tw-code,
 body[data-density='compact'] .tw-term {
   padding: 8px 12px;
-  font-size: 11px;
   line-height: 1.5;
 }
 
 body[data-density='compact'] .tool-line {
   padding: 5px 10px;
-  font-size: 11.5px;
 }
 
 /* ───── Diff ───── */
 .diff {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--code-size);
   line-height: 1.6;
 }
 
@@ -612,4 +765,62 @@ body[data-theme='dark'] .diff-line.del {
   border-radius: 10px;
   font-size: 13px;
   color: var(--danger);
+}
+
+/* ───── Thinking block — collapsible, muted by default ───── */
+.block-thinking {
+  margin: 4px 0 13px;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--accent) 4%, var(--code-bg));
+  overflow: hidden;
+}
+
+.block-thinking > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dim);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.block-thinking > summary::-webkit-details-marker {
+  display: none;
+}
+
+.block-thinking > summary::before {
+  content: '›';
+  display: inline-block;
+  width: 10px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--faint);
+  transform: rotate(0deg);
+  transition: transform 0.12s ease;
+}
+
+.block-thinking[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.block-thinking .bt-ico {
+  width: 12px;
+  height: 12px;
+  color: color-mix(in oklch, var(--accent) 80%, var(--dim));
+}
+
+.block-thinking .bt-body {
+  padding: 4px 14px 12px 28px;
+  font-family: var(--read);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--dim);
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Platform } from '@shared/api';
 import { ActivityBar } from './components/ActivityBar';
@@ -13,6 +14,8 @@ import { TabBar } from './components/TabBar';
 import { TitleBar } from './components/TitleBar';
 import { TokenMeter } from './components/TokenMeter';
 import { TweaksPanel } from './components/TweaksPanel';
+import { formatShortcut, setPlatform } from './lib/platform';
+import { applyNavEntry, initNavTracking, useNav } from './state/nav';
 import { useActiveSession, useSessions } from './state/sessions';
 import { useApplyTweaks, useTweaks } from './state/tweaks';
 
@@ -40,6 +43,7 @@ export function App() {
   const toggleTheme = useTweaks((s) => s.toggleTheme);
   const setTheme = useTweaks((s) => s.setTheme);
   const setDensity = useTweaks((s) => s.setDensity);
+  const setSidebarWidth = useTweaks((s) => s.setSidebarWidth);
 
   const {
     sessions,
@@ -55,6 +59,8 @@ export function App() {
     closeTab,
     updateSystemPrompt,
     openIds,
+    terminalOpenIds,
+    toggleTerminalOpen,
   } = useSessions(
     useShallow((s) => ({
       sessions: s.sessions,
@@ -70,11 +76,13 @@ export function App() {
       closeTab: s.closeTab,
       updateSystemPrompt: s.updateSystemPrompt,
       openIds: s.openIds,
+      terminalOpenIds: s.terminalOpenIds,
+      toggleTerminalOpen: s.toggleTerminalOpen,
     })),
   );
   const active = useActiveSession();
 
-  const [platform, setPlatform] = useState<Platform | ''>('');
+  const [platform, setPlatformLocal] = useState<Platform | ''>('');
   const [settings, setSettings] = useState<{ anchor: Anchor; trigger: HTMLElement } | null>(null);
   const [menu, setMenu] = useState<{
     id: string;
@@ -85,11 +93,61 @@ export function App() {
   const [showTweaks, setShowTweaks] = useState(false);
 
   useEffect(() => {
-    void window.api.app.platform().then(setPlatform);
+    void window.api.app.platform().then((p) => {
+      setPlatformLocal(p);
+      setPlatform(p);
+    });
   }, []);
 
   useEffect(() => {
     if (!useSessions.getState().hydrated) void useSessions.getState().hydrate();
+    initNavTracking();
+  }, []);
+
+  // Browser-style navigation. The main process forwards mouse buttons 4/5 and
+  // Cmd/Ctrl+Alt+Left/Right via IPC; we also listen for the raw mouse buttons
+  // here as a belt-and-braces safety net (some Linux WMs swallow app-command).
+  useEffect(() => {
+    const goBack = (): void => {
+      const entry = useNav.getState().goBack();
+      if (entry) applyNavEntry(entry);
+    };
+    const goForward = (): void => {
+      const entry = useNav.getState().goForward();
+      if (entry) applyNavEntry(entry);
+    };
+    const offBack = window.api.app.onRequestNavigateBack(goBack);
+    const offForward = window.api.app.onRequestNavigateForward(goForward);
+    const onMouseDown = (e: globalThis.MouseEvent): void => {
+      // MouseEvent.button: 3 = back, 4 = forward on most platforms.
+      if (e.button === 3) {
+        e.preventDefault();
+        goBack();
+      } else if (e.button === 4) {
+        e.preventDefault();
+        goForward();
+      }
+    };
+    window.addEventListener('mousedown', onMouseDown);
+    return () => {
+      offBack();
+      offForward();
+      window.removeEventListener('mousedown', onMouseDown);
+    };
+  }, []);
+
+  // Track in-flight assistant turns at app scope so the sidebar status dot
+  // updates even when the streaming session's pane isn't mounted.
+  useEffect(() => {
+    if (!window.api?.chat) return;
+    const unsub = window.api.chat.onEvent((sid, event) => {
+      const setStreaming = useSessions.getState().setStreaming;
+      if (event.type === 'turn-start') setStreaming(sid, true);
+      else if (event.type === 'turn-stop' || event.type === 'error') {
+        setStreaming(sid, false);
+      }
+    });
+    return unsub;
   }, []);
 
   // Keyboard shortcuts fired by the native application menu. Each handler reads
@@ -128,6 +186,10 @@ export function App() {
       if (!state.sideOpen) state.toggleSide();
       state.setSidebarView('search');
     });
+    const offTerminal = window.api.app.onRequestToggleTerminal(() => {
+      const state = useSessions.getState();
+      if (state.activeId) state.toggleTerminalOpen(state.activeId);
+    });
     return () => {
       offClose();
       offNew();
@@ -135,6 +197,7 @@ export function App() {
       offSettings();
       offSelectTab();
       offSearch();
+      offTerminal();
     };
   }, []);
 
@@ -154,6 +217,41 @@ export function App() {
     });
   };
 
+  /** Mouse-driven sidebar resize. Updates the --side-width CSS variable on
+   *  every move for instant feedback; commits the final value to the tweaks
+   *  store on mouseup so it persists across launches. */
+  const onSideResizeStart = (e: ReactMouseEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    const root = document.documentElement;
+    const startX = e.clientX;
+    const startWidth =
+      parseFloat(getComputedStyle(root).getPropertyValue('--side-width')) || 268;
+    const MIN = 200;
+    const MAX = 600;
+    const prevCursor = document.body.style.cursor;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    document.body.classList.add('is-resizing-side');
+
+    const move = (ev: globalThis.MouseEvent): void => {
+      const next = Math.max(MIN, Math.min(MAX, startWidth + (ev.clientX - startX)));
+      root.style.setProperty('--side-width', `${next}px`);
+    };
+    const end = (): void => {
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevUserSelect;
+      document.body.classList.remove('is-resizing-side');
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+      const finalW =
+        parseFloat(getComputedStyle(root).getPropertyValue('--side-width')) || startWidth;
+      setSidebarWidth(finalW);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+  };
+
   return (
     <div className={'app' + (sideOpen ? '' : ' side-collapsed')}>
       <TitleBar title={title} isMac={isMac} />
@@ -163,6 +261,7 @@ export function App() {
         onToggleSide={toggleSide}
         onSelectSessions={() => setSidebarView('sessions')}
         onSelectHistory={() => setSidebarView('history')}
+        onSelectAnalytics={() => setSidebarView('analytics')}
         onOpenSearch={() => {
           if (!sideOpen) toggleSide();
           setSidebarView('search');
@@ -182,6 +281,16 @@ export function App() {
           )
         }
       />
+      {sideOpen && (
+        <div
+          className="side-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          title="Drag to resize"
+          onMouseDown={onSideResizeStart}
+        />
+      )}
 
       <main className="main">
         <TabBar />
@@ -198,6 +307,20 @@ export function App() {
       <footer className="statusbar">
         <div className="st-spacer" />
         {active && <TokenMeter session={active} />}
+        <button
+          className={
+            'st-seg st-btn' +
+            (active && terminalOpenIds.includes(active.id) ? ' on' : '')
+          }
+          onClick={() => active && toggleTerminalOpen(active.id)}
+          title={`Toggle terminal (${formatShortcut('J')})`}
+          aria-label="Toggle terminal"
+          aria-pressed={!!active && terminalOpenIds.includes(active.id)}
+          disabled={!active}
+        >
+          <Icon name="terminal" />
+          <span>Terminal</span>
+        </button>
         <button
           className="st-seg st-btn"
           onClick={toggleTheme}

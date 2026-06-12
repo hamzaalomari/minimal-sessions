@@ -11,7 +11,7 @@ export interface CreateSessionInput {
   branch?: string;
 }
 
-export type SidebarView = 'sessions' | 'history' | 'search';
+export type SidebarView = 'sessions' | 'history' | 'search' | 'analytics';
 
 interface SessionsState {
   /** Loaded from SQLite via window.api on hydrate(). */
@@ -32,6 +32,10 @@ interface SessionsState {
   home: string;
   /** Active query in the sidebar Search view. Empty string = no filter. */
   searchQuery: string;
+  /** Sessions whose embedded terminal panel is currently open. */
+  terminalOpenIds: SessionId[];
+  /** Sessions with an in-flight assistant turn. Transient — never persisted. */
+  streamingIds: SessionId[];
 
   /** Load sessions from main-process SQLite. Idempotent. */
   hydrate(): Promise<void>;
@@ -47,6 +51,8 @@ interface SessionsState {
   purgeSession(id: SessionId): void;
   setSidebarView(view: SidebarView): void;
   setSearchQuery(q: string): void;
+  /** Show/hide the embedded terminal for `id`. Toggling off also kills the PTY. */
+  toggleTerminalOpen(id: SessionId): void;
   startRename(id: SessionId): void;
   commitRename(id: SessionId, name: string | null): void;
   setSideOpen(v: boolean): void;
@@ -62,6 +68,8 @@ interface SessionsState {
   updateSystemPrompt(id: SessionId, prompt: string): void;
   /** Cache the Agent SDK session id locally — persistence happens in main. */
   setSdkSessionId(id: SessionId, sdkSessionId: string): void;
+  /** Mark a session as currently streaming (in-flight assistant turn). */
+  setStreaming(id: SessionId, on: boolean): void;
 }
 
 const newId = (): string =>
@@ -83,6 +91,8 @@ export const useSessions = create<SessionsState>()(
       hydrated: false,
       home: '',
       searchQuery: '',
+      terminalOpenIds: [],
+      streamingIds: [],
 
       hydrate: async () => {
         const [sessions, deletedSessions, home] = await Promise.all([
@@ -125,7 +135,12 @@ export const useSessions = create<SessionsState>()(
           const openIds = s.openIds.filter((x) => x !== id);
           const activeId =
             s.activeId === id ? (openIds[openIds.length - 1] ?? null) : s.activeId;
-          return { openIds, activeId };
+          void window.api?.terminal?.close(id).catch(() => {});
+          return {
+            openIds,
+            activeId,
+            terminalOpenIds: s.terminalOpenIds.filter((x) => x !== id),
+          };
         }),
 
       reorderTabs: (dragId, targetId) => {
@@ -189,6 +204,7 @@ export const useSessions = create<SessionsState>()(
             s.activeId === id ? (openIds[openIds.length - 1] ?? null) : s.activeId;
           const { [id]: _omit, ...drafts } = s.drafts;
           void _omit;
+          void window.api?.terminal?.close(id).catch(() => {});
           // Prepend the session to history so the most recent deletion is on top.
           const deletedSessions = target
             ? [target, ...s.deletedSessions.filter((x) => x.id !== id)]
@@ -199,6 +215,7 @@ export const useSessions = create<SessionsState>()(
             openIds,
             activeId,
             drafts,
+            terminalOpenIds: s.terminalOpenIds.filter((x) => x !== id),
             renamingId: s.renamingId === id ? null : s.renamingId,
           };
         });
@@ -226,6 +243,14 @@ export const useSessions = create<SessionsState>()(
 
       setSidebarView: (view) => set({ sidebarView: view }),
       setSearchQuery: (q) => set({ searchQuery: q }),
+      toggleTerminalOpen: (id) =>
+        set((s) => {
+          if (s.terminalOpenIds.includes(id)) {
+            void window.api?.terminal?.close(id).catch(() => {});
+            return { terminalOpenIds: s.terminalOpenIds.filter((x) => x !== id) };
+          }
+          return { terminalOpenIds: [...s.terminalOpenIds, id] };
+        }),
 
       startRename: (id) => set({ renamingId: id }),
 
@@ -270,14 +295,27 @@ export const useSessions = create<SessionsState>()(
         }));
       },
 
+      setStreaming: (id, on) =>
+        set((s) => {
+          const has = s.streamingIds.includes(id);
+          if (on && !has) return { streamingIds: [...s.streamingIds, id] };
+          if (!on && has) return { streamingIds: s.streamingIds.filter((x) => x !== id) };
+          return {};
+        }),
+
       appendTurn: (id, turn, addTokens = 0, addUsage) => {
         const usage = addUsage ?? { ...ZERO_USAGE };
+        const hasUsage =
+          usage.input || usage.output || usage.cacheCreation || usage.cacheRead;
+        // Embed usage on the turn itself so the analytics view can date-filter
+        // without a DB round-trip. Skip when zeros (e.g. user turns).
+        const enriched: Turn = hasUsage ? { ...turn, usage } : turn;
         set((s) => ({
           sessions: s.sessions.map((x) =>
             x.id === id
               ? {
                   ...x,
-                  turns: [...x.turns, turn],
+                  turns: [...x.turns, enriched],
                   lastActiveAt: Date.now(),
                   tokens: x.tokens + addTokens,
                   usage: {
@@ -290,7 +328,7 @@ export const useSessions = create<SessionsState>()(
               : x,
           ),
         }));
-        void window.api?.turns.append(id, turn, addTokens, usage).catch(() => {});
+        void window.api?.turns.append(id, enriched, addTokens, usage).catch(() => {});
       },
     }),
     {

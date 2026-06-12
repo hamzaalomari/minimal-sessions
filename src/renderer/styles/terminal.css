@@ -1,0 +1,321 @@
+/* Sub-tabs at the top of SessionPane — switches between Chat and Terminal
+ * views. Sits below the session TabBar and serves as the view selector. */
+
+.pane-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  height: 32px;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0 8px;
+  flex: none;
+}
+
+.pane-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  letter-spacing: 0.005em;
+}
+
+.pane-tab svg {
+  width: 13px;
+  height: 13px;
+  color: var(--faint);
+}
+
+.pane-tab:hover {
+  color: var(--text);
+}
+
+.pane-tab:hover svg {
+  color: var(--dim);
+}
+
+.pane-tab.on {
+  color: var(--text);
+}
+
+.pane-tab.on svg {
+  color: var(--text);
+}
+
+.pane-tab.on::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.pane-tab:focus {
+  outline: none;
+}
+
+.pane-tab:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--accent) 70%, transparent);
+  outline-offset: -3px;
+  border-radius: 3px;
+}
+
+/* Terminal sub-tab layout: transcript on top, drag-handle, terminal at bottom.
+ * .term-split is the flex column wrapper; .term-wrap holds the terminal at
+ * a user-controlled fixed height (drag handle adjusts the inline `height`). */
+
+.term-split {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.term-resize {
+  flex: none;
+  height: 5px;
+  cursor: row-resize;
+  background: var(--border-soft);
+  position: relative;
+  transition: background 0.1s;
+}
+
+.term-resize:hover,
+.term-resize:active {
+  background: color-mix(in oklch, var(--accent) 60%, var(--border));
+}
+
+.term-wrap {
+  flex: none;
+  min-height: 140px;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.term-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  animation: term-fade-in 0.1s ease-out;
+}
+
+@keyframes term-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.term-bar {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 14px;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 11px;
+  color: var(--dim);
+  user-select: none;
+}
+
+.term-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.term-title svg {
+  width: 12px;
+  height: 12px;
+  color: var(--faint);
+}
+
+.term-title > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100ch;
+}
+
+.term-host {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 10px 4px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+/* xterm.js's own root takes the host dimensions. */
+.term-host .xterm,
+.term-host .xterm-viewport,
+.term-host .xterm-screen {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.term-host .xterm-viewport {
+  background: transparent !important;
+}
+
+/* Status-bar "Terminal" toggle uses the existing .st-btn / .st-seg styles;
+ * just add an accent rail when it's pressed. */
+.statusbar .st-btn.on {
+  color: var(--text);
+  background: var(--hover);
+}
+
+/* Skill-mode banner — sits above the textarea when input starts with "/". */
+.composer-box.skill-mode {
+  border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
+}
+
+.composer-mode {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px 0;
+  font-size: 11.5px;
+  color: var(--dim);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.composer-mode svg {
+  width: 13px;
+  height: 13px;
+  color: color-mix(in oklch, var(--accent) 75%, var(--text));
+}
+
+.composer-mode span {
+  color: color-mix(in oklch, var(--accent) 75%, var(--text));
+}
+
+/* ───── Slash command suggestions popover ───── */
+.slash-suggest {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% + 6px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+}
+
+.composer-box {
+  position: relative;
+}
+
+.slash-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  color: var(--dim);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in oklch, var(--text) 3%, transparent);
+}
+
+.slash-head svg {
+  width: 13px;
+  height: 13px;
+  color: color-mix(in oklch, var(--accent) 70%, var(--text));
+}
+
+.slash-help {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.slash-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.slash-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--ui);
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.slash-row:last-child {
+  border-bottom: 0;
+}
+
+.slash-row.on,
+.slash-row:hover {
+  background: color-mix(in oklch, var(--accent) 10%, var(--panel));
+}
+
+.slash-name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: color-mix(in oklch, var(--accent) 80%, var(--text));
+  flex: none;
+}
+
+.slash-desc {
+  color: var(--dim);
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slash-scope {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex: none;
+}
+
+.slash-scope.scope-plugin {
+  color: color-mix(in oklch, var(--accent) 70%, var(--text));
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border));
+}
+
+.slash-scope.scope-builtin {
+  color: var(--faint);
+}
+

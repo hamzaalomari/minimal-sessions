@@ -37,8 +37,16 @@
       "out/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "resources/commands",
+        "to": "commands",
+        "filter": ["**/*.md"]
+      }
+    ],
     "asarUnpack": [
-      "node_modules/better-sqlite3/**/*"
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/node-pty/**/*"
     ],
     "mac": {
       "target": [
@@ -61,8 +69,13 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.170",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "ansi_up": "^6.0.6",
     "better-sqlite3": "^12.10.0",
     "electron-updater": "^6.3.9",
+    "highlight.js": "^11.11.1",
+    "node-pty": "^1.1.0",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

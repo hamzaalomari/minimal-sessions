@@ -1,13 +1,15 @@
 import type { MouseEvent } from 'react';
 import { Icon } from './Icon';
+import { formatShortcut } from '../lib/platform';
 import iconUrl from '../assets/brand/minimal-sessions-icon.svg';
 
 interface ActivityBarProps {
   sideOpen: boolean;
-  sidebarView: 'sessions' | 'history' | 'search';
+  sidebarView: 'sessions' | 'history' | 'search' | 'analytics';
   onToggleSide(): void;
   onSelectSessions(): void;
   onSelectHistory(): void;
+  onSelectAnalytics(): void;
   onOpenSettings?(anchor: HTMLElement): void;
   onOpenSearch?(): void;
 }
@@ -18,6 +20,7 @@ export function ActivityBar({
   onToggleSide,
   onSelectSessions,
   onSelectHistory,
+  onSelectAnalytics,
   onOpenSettings,
   onOpenSearch,
 }: ActivityBarProps) {
@@ -41,7 +44,7 @@ export function ActivityBar({
             onSelectSessions();
           }
         }}
-        title="Sessions"
+        title={`Sessions (${formatShortcut('B')})`}
         aria-label="Toggle sessions sidebar"
       >
         <Icon name="sessions" />
@@ -50,7 +53,7 @@ export function ActivityBar({
         className={
           'act-btn' + (sideOpen && sidebarView === 'search' ? ' on' : '')
         }
-        title="Search"
+        title={`Search (${formatShortcut('F')})`}
         aria-label="Search"
         onClick={() => {
           if (sideOpen && sidebarView === 'search') onToggleSide();
@@ -75,10 +78,26 @@ export function ActivityBar({
       >
         <Icon name="clock" />
       </button>
+      <button
+        className={
+          'act-btn' + (sideOpen && sidebarView === 'analytics' ? ' on' : '')
+        }
+        title="Analytics"
+        aria-label="Usage analytics"
+        onClick={() => {
+          if (sideOpen && sidebarView === 'analytics') onToggleSide();
+          else {
+            if (!sideOpen) onToggleSide();
+            onSelectAnalytics();
+          }
+        }}
+      >
+        <Icon name="chart" />
+      </button>
       <div className="act-spacer" />
       <button
         className="act-btn"
-        title="Settings"
+        title={`Settings (${formatShortcut(',')})`}
         aria-label="Settings"
         onClick={handleSettings}
       >

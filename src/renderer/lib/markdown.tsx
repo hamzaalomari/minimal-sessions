@@ -1,7 +1,21 @@
 import type { ReactNode } from 'react';
 
-// Bold (**text**), italic (*text* or _text_), inline code (`text`), link ([text](url)).
-const RE = /(\*\*([^*]+)\*\*|\*([^*\n]+)\*|_([^_\n]+)_|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\))/g;
+// Bold (**text**), italic (*text* or _text_), inline code (`text`),
+// markdown link ([text](url)), and bare http(s) URLs (auto-linked).
+const RE =
+  /(\*\*([^*]+)\*\*|\*([^*\n]+)\*|_([^_\n]+)_|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>()'"]+))/g;
+
+/** Trim trailing punctuation that's almost certainly sentence terminators,
+ *  not part of the URL. (Closing parens are handled by the regex itself.) */
+function cleanBareUrl(raw: string): { url: string; trailing: string } {
+  let url = raw;
+  let trailing = '';
+  while (url.length > 0 && /[.,;:!?]$/.test(url)) {
+    trailing = url.slice(-1) + trailing;
+    url = url.slice(0, -1);
+  }
+  return { url, trailing };
+}
 
 function renderSegment(text: string, baseKey: number): ReactNode[] {
   const out: ReactNode[] = [];
@@ -33,6 +47,19 @@ function renderSegment(text: string, baseKey: number): ReactNode[] {
           {m[6]}
         </a>,
       );
+    } else if (m[8] != null) {
+      const { url, trailing } = cleanBareUrl(m[8]);
+      out.push(
+        <a
+          key={`${baseKey}-${k++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {url}
+        </a>,
+      );
+      if (trailing) out.push(trailing);
     }
     last = m.index + m[0].length;
   }

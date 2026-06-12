@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Api, Platform } from '@shared/api';
@@ -65,6 +65,9 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
           openSearchHandler = null;
         };
       }),
+      onRequestToggleTerminal: vi.fn(() => () => {}),
+      onRequestNavigateBack: vi.fn(() => () => {}),
+      onRequestNavigateForward: vi.fn(() => () => {}),
     },
     fs: {
       pickDirectory: vi.fn().mockResolvedValue('/Users/h/dev/fresh'),
@@ -74,8 +77,12 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
     models: {
       list: vi.fn().mockResolvedValue([]),
     },
+    commands: {
+      list: vi.fn().mockResolvedValue([]),
+    },
     chat: {
       send: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
       onEvent: vi.fn(() => () => {}),
     },
     sessions: {
@@ -91,6 +98,14 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
     turns: {
       list: vi.fn().mockResolvedValue([]),
       append: vi.fn().mockResolvedValue(undefined),
+    },
+    terminal: {
+      open: vi.fn().mockResolvedValue({ reused: false }),
+      write: vi.fn().mockResolvedValue(undefined),
+      resize: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+      onData: vi.fn(() => () => {}),
+      onExit: vi.fn(() => () => {}),
     },
   };
   (window as unknown as { api: Api }).api = api;
@@ -124,6 +139,7 @@ function resetStores() {
     hydrated: true,
     home: '/Users/h',
     searchQuery: '',
+    terminalOpenIds: [],
   });
 }
 
@@ -164,7 +180,8 @@ describe('<App />', () => {
     render(<App />);
     expect(screen.getByRole('list')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(SEED_SESSIONS.length);
-    expect(screen.getAllByRole('tab')).toHaveLength(SEED_OPEN_IDS.length);
+    const tabBar = screen.getByRole('tablist', { name: 'Open sessions' });
+    expect(within(tabBar).getAllByRole('tab')).toHaveLength(SEED_OPEN_IDS.length);
     await waitFor(() => expect(window.api.app.platform).toHaveBeenCalled());
   });
 

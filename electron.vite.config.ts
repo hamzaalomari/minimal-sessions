@@ -12,7 +12,7 @@ export default defineConfig({
       rollupOptions: {
         // Native module — bundling inlines the JS but the .node binary lives
         // outside the bundle. Externalize so Node resolves it at runtime.
-        external: ['better-sqlite3'],
+        external: ['better-sqlite3', 'node-pty'],
       },
     },
     resolve: {

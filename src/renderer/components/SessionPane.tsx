@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Block, Session, Turn } from '@shared/types';
 import type { ChatEvent } from '@shared/api';
 import { pathForTool, summaryFor, toolKindFor } from '@shared/tool-display';
-import { Composer } from './Composer';
+import { Composer, type ComposerHandle } from './Composer';
 import { EmptyState } from './EmptyState';
+import { Icon } from './Icon';
+import { Terminal } from './Terminal';
 import { Transcript } from './Transcript';
+import { formatShortcut } from '../lib/platform';
 import { useSessions } from '../state/sessions';
 import { useTweaks } from '../state/tweaks';
 
@@ -26,15 +30,37 @@ interface StreamingTurn {
 }
 
 export function SessionPane({ session }: SessionPaneProps) {
-  const { draft, setDraft, appendTurn, setSdkSessionId } = useSessions(
+  const {
+    draft,
+    setDraft,
+    appendTurn,
+    setSdkSessionId,
+    setStreaming,
+    terminalOpen,
+    toggleTerminalOpen,
+  } = useSessions(
     useShallow((s) => ({
       draft: s.drafts[session.id] ?? '',
       setDraft: s.setDraft,
       appendTurn: s.appendTurn,
       setSdkSessionId: s.setSdkSessionId,
+      setStreaming: s.setStreaming,
+      terminalOpen: s.terminalOpenIds.includes(session.id),
+      toggleTerminalOpen: s.toggleTerminalOpen,
     })),
   );
-  const [streaming, setStreaming] = useState<StreamingTurn | null>(null);
+  const terminalHeight = useTweaks((s) => s.terminalHeight);
+  const setTerminalHeight = useTweaks((s) => s.setTerminalHeight);
+  const splitRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<ComposerHandle | null>(null);
+  /** Wraps everything SessionPane renders. We compare against this on document
+   *  mousedown to decide whether subsequent typing should land in the composer. */
+  const paneRootRef = useRef<HTMLDivElement | null>(null);
+  /** Set to true on a mousedown inside the pane; reset to false on a mousedown
+   *  anywhere else. While true, printable-key presses with no other input
+   *  focused get routed into the composer's textarea. */
+  const armedRef = useRef(false);
+  const [streaming, setStreamingLocal] = useState<StreamingTurn | null>(null);
   // The latest streaming state we can mutate from the event listener without
   // re-subscribing on every keystroke.
   const streamingRef = useRef<StreamingTurn | null>(null);
@@ -43,6 +69,59 @@ export function SessionPane({ session }: SessionPaneProps) {
   // these is consumed for sdkSessionId bookkeeping but not re-appended to the
   // transcript — we've already finalized them locally.
   const cancelledTurnIds = useRef<Set<string>>(new Set());
+
+  // Arm/disarm typing-into-composer based on where the user mousedowns. We
+  // listen at document level so we catch clicks anywhere (sidebar, statusbar,
+  // titlebar) and disarm accordingly. The pane root is wrapped in a
+  // display:contents div so we can match descendant clicks with `.contains()`.
+  useEffect(() => {
+    function onDocMouseDown(e: globalThis.MouseEvent): void {
+      const target = e.target as Node | null;
+      const root = paneRootRef.current;
+      armedRef.current = !!(root && target && root.contains(target));
+    }
+    document.addEventListener('mousedown', onDocMouseDown, true);
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  }, []);
+
+  // Document-level keydown — when armed AND nothing else has text focus, route
+  // printable keys into the composer's textarea. Closes over terminalOpen so it
+  // re-binds when the user switches sub-tabs.
+  useEffect(() => {
+    function onDocKeyDown(e: globalThis.KeyboardEvent): void {
+      if (!armedRef.current || terminalOpen) return;
+      // Skip if the user is already typing somewhere else.
+      const active = document.activeElement as HTMLElement | null;
+      if (active) {
+        const tag = active.tagName;
+        if (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          active.isContentEditable
+        ) {
+          return;
+        }
+      }
+      // Let chord shortcuts fall through (Cmd+K, Ctrl+F, etc.).
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const ta = composerRef.current?.getTextarea();
+      if (!ta) return;
+
+      if (e.key.length === 1) {
+        e.preventDefault();
+        ta.focus();
+        appendToControlledTextarea(ta, e.key);
+      } else if (e.key === 'Backspace') {
+        if (!ta.value) return;
+        e.preventDefault();
+        ta.focus();
+        setControlledTextareaValue(ta, ta.value.slice(0, -1));
+      }
+    }
+    document.addEventListener('keydown', onDocKeyDown);
+    return () => document.removeEventListener('keydown', onDocKeyDown);
+  }, [terminalOpen]);
 
   // One subscription per mounted session. We filter by sessionId so other
   // active streams don't leak into this pane.
@@ -66,7 +145,7 @@ export function SessionPane({ session }: SessionPaneProps) {
         text: '',
       };
       streamingRef.current = next;
-      setStreaming(next);
+      setStreamingLocal(next);
       return;
     }
     // Late-arriving turn-stop after an optimistic stop has nulled cur — still
@@ -81,7 +160,7 @@ export function SessionPane({ session }: SessionPaneProps) {
     if (event.type === 'text-delta') {
       const next: StreamingTurn = { ...cur, text: cur.text + event.text };
       streamingRef.current = next;
-      setStreaming(next);
+      setStreamingLocal(next);
       return;
     }
     if (event.type === 'tool-start') {
@@ -117,7 +196,7 @@ export function SessionPane({ session }: SessionPaneProps) {
         text: '',
       };
       streamingRef.current = next;
-      setStreaming(next);
+      setStreamingLocal(next);
       return;
     }
     if (event.type === 'turn-stop') {
@@ -136,7 +215,7 @@ export function SessionPane({ session }: SessionPaneProps) {
         ...(cur.modelShort ? { modelShort: cur.modelShort } : {}),
       };
       streamingRef.current = null;
-      setStreaming(null);
+      setStreamingLocal(null);
       appendTurn(session.id, finalTurn, event.addTokens, event.addUsage);
       return;
     }
@@ -164,14 +243,15 @@ export function SessionPane({ session }: SessionPaneProps) {
       };
       cancelledTurnIds.current.add(cur.id);
       streamingRef.current = null;
-      setStreaming(null);
+      setStreamingLocal(null);
       appendTurn(session.id, partial, 0);
     }
+    setStreaming(session.id, false);
     void window.api.chat.stop(session.id);
   };
 
-  const send = async () => {
-    const text = draft.trim();
+  const send = async (rawText: string = draft) => {
+    const text = rawText.trim();
     if (!text || streaming) return;
 
     const userTurn: Turn = {
@@ -182,6 +262,9 @@ export function SessionPane({ session }: SessionPaneProps) {
     };
     appendTurn(session.id, userTurn);
     setDraft(session.id, '');
+    // Flip the sidebar status dot to "busy" right away — turn-start may be
+    // milliseconds away but feedback should be immediate.
+    setStreaming(session.id, true);
 
     try {
       const globalSystemPrompt = useTweaks.getState().systemPrompt;
@@ -196,7 +279,8 @@ export function SessionPane({ session }: SessionPaneProps) {
         createdAt: Date.now(),
       });
       streamingRef.current = null;
-      setStreaming(null);
+      setStreaming(session.id, false);
+      setStreamingLocal(null);
     }
   };
 
@@ -218,29 +302,129 @@ export function SessionPane({ session }: SessionPaneProps) {
     : session;
 
   return (
-    <>
-      {displaySession.turns.length === 0 ? (
-        <EmptyState
+    <div ref={paneRootRef} style={{ display: 'contents' }}>
+      <div className="pane-tabs" role="tablist" aria-label="Session view">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!terminalOpen}
+          className={'pane-tab' + (!terminalOpen ? ' on' : '')}
+          onClick={() => {
+            if (terminalOpen) toggleTerminalOpen(session.id);
+          }}
+        >
+          <Icon name="sessions" />
+          <span>Chat</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={terminalOpen}
+          className={'pane-tab' + (terminalOpen ? ' on' : '')}
+          onClick={() => {
+            if (!terminalOpen) toggleTerminalOpen(session.id);
+          }}
+          title={`Terminal (${formatShortcut('J')})`}
+        >
+          <Icon name="terminal" />
+          <span>Terminal</span>
+        </button>
+      </div>
+      {/* Transcript is rendered in the same JSX position in both states so
+       *  React keeps the instance and its scroll position is preserved when
+       *  toggling between Chat and Terminal sub-tabs. */}
+      <div className="term-split" ref={splitRef}>
+        {displaySession.turns.length === 0 ? (
+          <EmptyState
+            session={session}
+            onSuggest={(t) => setDraft(session.id, t)}
+          />
+        ) : (
+          <Transcript session={displaySession} typing={!!streaming} />
+        )}
+        {terminalOpen && (
+          <>
+            <div
+              role="separator"
+              aria-label="Resize terminal"
+              aria-orientation="horizontal"
+              className="term-resize"
+              onMouseDown={onResizeStart}
+            />
+            <div className="term-wrap" style={{ height: terminalHeight }}>
+              <Terminal
+                session={session}
+                onClose={() => toggleTerminalOpen(session.id)}
+              />
+            </div>
+          </>
+        )}
+      </div>
+      {!terminalOpen && (
+        <Composer
+          ref={composerRef}
+          key={session.id}
           session={session}
-          onSuggest={(t) => setDraft(session.id, t)}
+          value={draft}
+          onChange={(t) => setDraft(session.id, t)}
+          onSend={send}
+          onStop={stop}
+          busy={!!streaming}
         />
-      ) : (
-        <Transcript session={displaySession} typing={!!streaming} />
       )}
-      <Composer
-        key={session.id}
-        session={session}
-        value={draft}
-        onChange={(t) => setDraft(session.id, t)}
-        onSend={send}
-        onStop={stop}
-        busy={!!streaming}
-      />
-    </>
+    </div>
   );
+
+  function onResizeStart(e: ReactMouseEvent<HTMLDivElement>): void {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = terminalHeight;
+    const prevCursor = document.body.style.cursor;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const move = (ev: globalThis.MouseEvent): void => {
+      const containerH = splitRef.current?.getBoundingClientRect().height ?? 600;
+      // Dragging up grows the terminal; dragging down shrinks it.
+      const next = Math.max(
+        140,
+        Math.min(containerH - 140, startHeight + (startY - ev.clientY)),
+      );
+      setTerminalHeight(next);
+    };
+    const end = (): void => {
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevUserSelect;
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+  }
 }
 
 function foldText(s: StreamingTurn): Block[] {
   if (!s.text) return s.blocks;
   return [...s.blocks, { type: 'p', text: s.text }];
+}
+
+/**
+ * Programmatically set the value of a React-controlled textarea so the
+ * change is observed by React's onChange handler. React installs its own
+ * `value` setter on the element; we have to call the *native* setter and
+ * then dispatch an input event so React's synthetic event fires.
+ */
+function setControlledTextareaValue(ta: HTMLTextAreaElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    'value',
+  )?.set;
+  setter?.call(ta, value);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+  ta.setSelectionRange(value.length, value.length);
+}
+
+function appendToControlledTextarea(ta: HTMLTextAreaElement, text: string): void {
+  setControlledTextareaValue(ta, ta.value + text);
 }

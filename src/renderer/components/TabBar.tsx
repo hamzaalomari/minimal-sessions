@@ -3,6 +3,7 @@ import type { DragEvent, MouseEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Icon } from './Icon';
 import { getModel } from '../data/models';
+import { formatShortcut } from '../lib/platform';
 import { useSessions } from '../state/sessions';
 
 export function TabBar() {
@@ -86,6 +87,18 @@ export function TabBar() {
               }
               draggable
               onClick={() => selectSession(s.id)}
+              onAuxClick={(e) => {
+                // Middle-click closes the tab, mirroring browser-tab behavior.
+                if (e.button === 1) {
+                  e.preventDefault();
+                  closeTab(s.id);
+                }
+              }}
+              onMouseDown={(e) => {
+                // Suppress the OS autoscroll cursor that middle-click would
+                // otherwise pop up on Windows/Linux before we get the auxclick.
+                if (e.button === 1) e.preventDefault();
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
@@ -103,7 +116,7 @@ export function TabBar() {
               <span className="tab-name">{s.name}</span>
               <button
                 className="tab-close"
-                title="Close tab"
+                title={isActive ? `Close tab (${formatShortcut('W')})` : 'Close tab'}
                 aria-label={`Close ${s.name}`}
                 onClick={onClose(s.id)}
               >
@@ -115,7 +128,7 @@ export function TabBar() {
       </div>
       <button
         className="tab-add"
-        title="New session"
+        title={`New session (${formatShortcut('N')})`}
         aria-label="New session"
         onClick={() => setShowNew(true)}
       >

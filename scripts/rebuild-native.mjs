@@ -12,7 +12,7 @@
 //        node scripts/rebuild-native.mjs --runtime=node
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -23,6 +23,29 @@ const prebuildInstall = resolve(
   projectRoot,
   'node_modules/.bin/prebuild-install',
 );
+
+// node-pty's npm post-install only chmods files in `build/Release`, but the
+// prebuilt unix binary ships in `prebuilds/<platform>-<arch>/spawn-helper`
+// without the executable bit. That makes `posix_spawnp` fail on first launch.
+// Restore the bit here so it survives every `npm install`.
+function fixNodePtySpawnHelper() {
+  const nodePtyPrebuilds = resolve(
+    projectRoot,
+    'node_modules/node-pty/prebuilds',
+  );
+  if (!existsSync(nodePtyPrebuilds)) return;
+  for (const arch of readdirSync(nodePtyPrebuilds)) {
+    const helper = resolve(nodePtyPrebuilds, arch, 'spawn-helper');
+    if (existsSync(helper)) {
+      try {
+        chmodSync(helper, 0o755);
+      } catch (e) {
+        console.warn(`[rebuild-native] failed to chmod ${helper}: ${e.message}`);
+      }
+    }
+  }
+}
+fixNodePtySpawnHelper();
 
 const runtimeArg = process.argv
   .find((a) => a.startsWith('--runtime='))

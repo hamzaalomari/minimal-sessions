@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import type { Block as BlockT } from '@shared/types';
 import { parseMarkdown } from '@shared/markdown';
 import { renderInline } from '../lib/markdown';
@@ -22,23 +23,30 @@ const TOOL_LINE_ICON: Record<string, IconName> = {
  *  parsing, not just inline formatting. */
 const BLOCK_MD_RE = /(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|```|\|.+\|)/;
 
-export function Block({ block: b }: BlockProps) {
+export const Block = memo(function Block({ block: b }: BlockProps) {
+  // For 'p' blocks that actually contain block-level markdown, parse once
+  // per block reference. Without this useMemo, every parent re-render would
+  // re-parse and produce a brand-new sub-block array — defeating the memo
+  // on the recursive <Block /> calls below.
+  const parsedSubBlocks = useMemo(() => {
+    if (b.type !== 'p' || !BLOCK_MD_RE.test(b.text)) return null;
+    const parsed = parseMarkdown(b.text);
+    if (parsed.length > 1 || (parsed[0] && parsed[0].type !== 'p')) {
+      return parsed;
+    }
+    return null;
+  }, [b]);
+
   switch (b.type) {
     case 'p':
-      // Legacy DB rows and the live streaming overlay can carry raw markdown
-      // in a single 'p' block. Re-parse and render as multiple blocks when
-      // we detect block-level syntax.
-      if (BLOCK_MD_RE.test(b.text)) {
-        const parsed = parseMarkdown(b.text);
-        if (parsed.length > 1 || (parsed[0] && parsed[0].type !== 'p')) {
-          return (
-            <>
-              {parsed.map((sub, i) => (
-                <Block key={i} block={sub} />
-              ))}
-            </>
-          );
-        }
+      if (parsedSubBlocks) {
+        return (
+          <>
+            {parsedSubBlocks.map((sub, i) => (
+              <Block key={i} block={sub} />
+            ))}
+          </>
+        );
       }
       return <p>{renderInline(b.text)}</p>;
     case 'h':
@@ -100,7 +108,17 @@ export function Block({ block: b }: BlockProps) {
           defaultOpen={b.defaultOpen}
         />
       );
+    case 'thinking':
+      return (
+        <details className="block-thinking">
+          <summary>
+            <Icon name="spark" className="bt-ico" />
+            <span>Thinking</span>
+          </summary>
+          <div className="bt-body">{b.text}</div>
+        </details>
+      );
     case 'error':
       return <div className="block-error" role="alert">{b.message}</div>;
   }
-}
+});
