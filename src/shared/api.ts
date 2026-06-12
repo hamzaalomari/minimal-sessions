@@ -105,6 +105,12 @@ export interface Api {
     onRequestNavigateBack(handler: () => void): Unsubscribe;
     /** Mouse-button-5 / Cmd/Ctrl+Alt+Right — re-push a popped nav state. */
     onRequestNavigateForward(handler: () => void): Unsubscribe;
+    /** Ctrl+Tab / CmdOrCtrl+~ / CmdOrCtrl+PageDown / CmdOrCtrl+Shift+] —
+     *  cycle forward through open tabs in tab order, wrapping at the end. */
+    onRequestNextTab(handler: () => void): Unsubscribe;
+    /** Ctrl+Shift+Tab / CmdOrCtrl+PageUp / CmdOrCtrl+Shift+[ — cycle
+     *  backward through open tabs, wrapping at the start. */
+    onRequestPrevTab(handler: () => void): Unsubscribe;
   };
   fs: {
     /** Native OS folder picker. Resolves to the picked absolute path, or null if cancelled. */

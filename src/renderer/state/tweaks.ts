@@ -186,10 +186,15 @@ export function useApplyTweaks(): void {
 function applyCodeTheme(id: string): void {
   const theme = getCodeTheme(id);
   const existing = document.getElementById('hljs-theme') as HTMLStyleElement | null;
+  // Drive a body attribute so transcript.css can gate its hardcoded `.hljs-*`
+  // rules — those would otherwise out-specify the injected stylesheet's bare
+  // `.hljs-*` selectors and silently override the picked theme.
   if (!theme.css) {
+    document.body.setAttribute('data-code-theme', 'default');
     if (existing) existing.remove();
     return;
   }
+  document.body.setAttribute('data-code-theme', 'custom');
   const el = existing ?? document.createElement('style');
   el.id = 'hljs-theme';
   el.textContent = theme.css;

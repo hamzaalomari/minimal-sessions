@@ -101,12 +101,20 @@ body.is-resizing-side .side-resize {
 }
 
 /* Container for header actions in the History view — keeps the "Delete all"
- * button beside the "Sessions" back-link without a layout shift on the other
- * views, where the back-link is on its own. */
+ * button beside the "Sessions" back-link. Only rendered when there's actually
+ * a Delete-all button to show; otherwise the Sessions button renders bare so
+ * it visually matches every other sidebar view (Sessions / Search / Analytics). */
 .side-hd-actions {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
+}
+
+/* Both buttons share the row width equally — keeps Sessions visually
+ * balanced instead of squished against the chevron. */
+.side-hd-actions .new-btn,
+.side-hd-actions .hist-clear-btn {
+  flex: 1;
 }
 
 .hist-clear-btn {

@@ -68,6 +68,8 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
       onRequestToggleTerminal: vi.fn(() => () => {}),
       onRequestNavigateBack: vi.fn(() => () => {}),
       onRequestNavigateForward: vi.fn(() => () => {}),
+      onRequestNextTab: vi.fn(() => () => {}),
+      onRequestPrevTab: vi.fn(() => () => {}),
     },
     fs: {
       pickDirectory: vi.fn().mockResolvedValue('/Users/h/dev/fresh'),

@@ -172,6 +172,54 @@ function buildMenu(): Menu {
       };
     },
   );
+  // Tab cycling shortcuts. We register several aliases because muscle memory
+  // varies between apps (browsers, VSCode, terminals).
+  //   - Ctrl+Tab / Ctrl+Shift+Tab     — VSCode + browser standard
+  //   - CmdOrCtrl+~                   — user-requested
+  //   - CmdOrCtrl+PageDown / PageUp   — browser-style
+  //   - CmdOrCtrl+Shift+] / [         — Mac browser convention
+  // Cmd+Tab is *not* used on macOS because the OS owns it (app switcher).
+  const nextTabAccelerators = [
+    'Ctrl+Tab',
+    'CmdOrCtrl+~',
+    'CmdOrCtrl+PageDown',
+    'CmdOrCtrl+Shift+]',
+  ];
+  const prevTabAccelerators = [
+    'Ctrl+Shift+Tab',
+    'CmdOrCtrl+PageUp',
+    'CmdOrCtrl+Shift+[',
+  ];
+  // Electron only honours one accelerator per menu item, so we create a
+  // visible "Next Tab" / "Previous Tab" item bound to the canonical shortcut
+  // and add hidden duplicates for each alias. The hidden items keep the
+  // shortcut active without cluttering the menu.
+  const nextTabItem: MenuItemConstructorOptions = {
+    label: 'Next Tab',
+    accelerator: nextTabAccelerators[0],
+    click: sendToFocused('app:request-next-tab'),
+  };
+  const prevTabItem: MenuItemConstructorOptions = {
+    label: 'Previous Tab',
+    accelerator: prevTabAccelerators[0],
+    click: sendToFocused('app:request-prev-tab'),
+  };
+  const nextTabAliases: MenuItemConstructorOptions[] = nextTabAccelerators
+    .slice(1)
+    .map((acc) => ({
+      label: `Next Tab (${acc})`,
+      accelerator: acc,
+      visible: false,
+      click: sendToFocused('app:request-next-tab'),
+    }));
+  const prevTabAliases: MenuItemConstructorOptions[] = prevTabAccelerators
+    .slice(1)
+    .map((acc) => ({
+      label: `Previous Tab (${acc})`,
+      accelerator: acc,
+      visible: false,
+      click: sendToFocused('app:request-prev-tab'),
+    }));
 
   const template: MenuItemConstructorOptions[] = [
     ...(isMac
@@ -248,6 +296,11 @@ function buildMenu(): Menu {
       submenu: [
         { role: 'minimize' },
         { role: 'zoom' },
+        { type: 'separator' },
+        nextTabItem,
+        prevTabItem,
+        ...nextTabAliases,
+        ...prevTabAliases,
         { type: 'separator' },
         ...selectTabItems,
         ...(isMac

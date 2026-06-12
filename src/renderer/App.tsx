@@ -190,6 +190,21 @@ export function App() {
       const state = useSessions.getState();
       if (state.activeId) state.toggleTerminalOpen(state.activeId);
     });
+    // Cycle through open tabs in order. Wraps in both directions so the
+    // user can hammer the shortcut without hitting a dead end. No-op when
+    // 0 or 1 tabs are open.
+    const cycleTab = (delta: 1 | -1): void => {
+      const state = useSessions.getState();
+      const { openIds, activeId } = state;
+      if (openIds.length < 2) return;
+      const idx = activeId ? openIds.indexOf(activeId) : -1;
+      const start = idx === -1 ? 0 : idx;
+      const nextIdx = (start + delta + openIds.length) % openIds.length;
+      const nextId = openIds[nextIdx];
+      if (nextId) state.selectSession(nextId);
+    };
+    const offNextTab = window.api.app.onRequestNextTab(() => cycleTab(1));
+    const offPrevTab = window.api.app.onRequestPrevTab(() => cycleTab(-1));
     return () => {
       offClose();
       offNew();
@@ -198,6 +213,8 @@ export function App() {
       offSelectTab();
       offSearch();
       offTerminal();
+      offNextTab();
+      offPrevTab();
     };
   }, []);
 

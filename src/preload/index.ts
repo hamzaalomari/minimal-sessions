@@ -56,6 +56,16 @@ const api: Api = {
       return () =>
         ipcRenderer.removeListener('app:request-navigate-forward', listener);
     },
+    onRequestNextTab: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-next-tab', listener);
+      return () => ipcRenderer.removeListener('app:request-next-tab', listener);
+    },
+    onRequestPrevTab: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-prev-tab', listener);
+      return () => ipcRenderer.removeListener('app:request-prev-tab', listener);
+    },
   },
   fs: {
     pickDirectory: () => ipcRenderer.invoke('fs:pick-directory'),

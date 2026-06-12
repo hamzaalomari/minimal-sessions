@@ -220,8 +220,12 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
             <span>History</span>
             <span className="side-count">{deletedSessions.length}</span>
           </div>
-          <div className="side-hd-actions">
-            {deletedSessions.length > 0 && (
+          {deletedSessions.length > 0 ? (
+            // Two-button row only when there's something to delete. After the
+            // user clicks "Delete all" the count drops to 0 and we fall back
+            // to the single-button branch — so the Sessions button visually
+            // matches every other sidebar view.
+            <div className="side-hd-actions">
               <button
                 className="hist-clear-btn"
                 onClick={onDeleteAll}
@@ -232,7 +236,16 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
                 <Icon name="trash" />
                 Delete all
               </button>
-            )}
+              <button
+                className="new-btn"
+                onClick={() => setSidebarView('sessions')}
+                title="Back to sessions"
+              >
+                <Icon name="chevR" />
+                Sessions
+              </button>
+            </div>
+          ) : (
             <button
               className="new-btn"
               onClick={() => setSidebarView('sessions')}
@@ -241,7 +254,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
               <Icon name="chevR" />
               Sessions
             </button>
-          </div>
+          )}
         </div>
         <div className="session-list scroll" role="list">
           {deletedSessions.length === 0 ? (

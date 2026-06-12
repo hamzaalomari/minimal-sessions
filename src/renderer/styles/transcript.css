@@ -281,121 +281,121 @@ body[data-theme='dark'] .tw-code .c-str {
 
 /* ───── highlight.js theme — mapped to our accent palette so it tracks
  * theme + accent presets. Light-mode values; dark-mode overrides below. */
-.code-body .hljs,
-.tw-code .hljs {
+body[data-code-theme='default'] .code-body .hljs,
+body[data-code-theme='default'] .tw-code .hljs {
   color: var(--text);
   background: transparent;
 }
 
-.code-body .hljs-keyword,
-.code-body .hljs-selector-tag,
-.code-body .hljs-built_in,
-.code-body .hljs-meta,
-.tw-code .hljs-keyword,
-.tw-code .hljs-selector-tag,
-.tw-code .hljs-built_in,
-.tw-code .hljs-meta {
+body[data-code-theme='default'] .code-body .hljs-keyword,
+body[data-code-theme='default'] .code-body .hljs-selector-tag,
+body[data-code-theme='default'] .code-body .hljs-built_in,
+body[data-code-theme='default'] .code-body .hljs-meta,
+body[data-code-theme='default'] .tw-code .hljs-keyword,
+body[data-code-theme='default'] .tw-code .hljs-selector-tag,
+body[data-code-theme='default'] .tw-code .hljs-built_in,
+body[data-code-theme='default'] .tw-code .hljs-meta {
   color: color-mix(in oklch, var(--accent) 70%, var(--text));
   font-weight: 600;
 }
 
-.code-body .hljs-string,
-.code-body .hljs-attr,
-.code-body .hljs-symbol,
-.code-body .hljs-quote,
-.tw-code .hljs-string,
-.tw-code .hljs-attr,
-.tw-code .hljs-symbol,
-.tw-code .hljs-quote {
+body[data-code-theme='default'] .code-body .hljs-string,
+body[data-code-theme='default'] .code-body .hljs-attr,
+body[data-code-theme='default'] .code-body .hljs-symbol,
+body[data-code-theme='default'] .code-body .hljs-quote,
+body[data-code-theme='default'] .tw-code .hljs-string,
+body[data-code-theme='default'] .tw-code .hljs-attr,
+body[data-code-theme='default'] .tw-code .hljs-symbol,
+body[data-code-theme='default'] .tw-code .hljs-quote {
   color: #6a9b5c;
 }
 
-.code-body .hljs-number,
-.code-body .hljs-literal,
-.code-body .hljs-regexp,
-.tw-code .hljs-number,
-.tw-code .hljs-literal,
-.tw-code .hljs-regexp {
+body[data-code-theme='default'] .code-body .hljs-number,
+body[data-code-theme='default'] .code-body .hljs-literal,
+body[data-code-theme='default'] .code-body .hljs-regexp,
+body[data-code-theme='default'] .tw-code .hljs-number,
+body[data-code-theme='default'] .tw-code .hljs-literal,
+body[data-code-theme='default'] .tw-code .hljs-regexp {
   color: #b6743a;
 }
 
-.code-body .hljs-title,
-.code-body .hljs-name,
-.code-body .hljs-section,
-.code-body .hljs-function .hljs-title,
-.tw-code .hljs-title,
-.tw-code .hljs-name,
-.tw-code .hljs-section,
-.tw-code .hljs-function .hljs-title {
+body[data-code-theme='default'] .code-body .hljs-title,
+body[data-code-theme='default'] .code-body .hljs-name,
+body[data-code-theme='default'] .code-body .hljs-section,
+body[data-code-theme='default'] .code-body .hljs-function .hljs-title,
+body[data-code-theme='default'] .tw-code .hljs-title,
+body[data-code-theme='default'] .tw-code .hljs-name,
+body[data-code-theme='default'] .tw-code .hljs-section,
+body[data-code-theme='default'] .tw-code .hljs-function .hljs-title {
   color: #3c7eb8;
   font-weight: 600;
 }
 
-.code-body .hljs-variable,
-.code-body .hljs-template-variable,
-.code-body .hljs-attribute,
-.tw-code .hljs-variable,
-.tw-code .hljs-template-variable,
-.tw-code .hljs-attribute {
+body[data-code-theme='default'] .code-body .hljs-variable,
+body[data-code-theme='default'] .code-body .hljs-template-variable,
+body[data-code-theme='default'] .code-body .hljs-attribute,
+body[data-code-theme='default'] .tw-code .hljs-variable,
+body[data-code-theme='default'] .tw-code .hljs-template-variable,
+body[data-code-theme='default'] .tw-code .hljs-attribute {
   color: #a35aa5;
 }
 
-.code-body .hljs-comment,
-.code-body .hljs-formula,
-.tw-code .hljs-comment,
-.tw-code .hljs-formula {
+body[data-code-theme='default'] .code-body .hljs-comment,
+body[data-code-theme='default'] .code-body .hljs-formula,
+body[data-code-theme='default'] .tw-code .hljs-comment,
+body[data-code-theme='default'] .tw-code .hljs-formula {
   color: var(--faint);
   font-style: italic;
 }
 
-.code-body .hljs-tag,
-.tw-code .hljs-tag {
+body[data-code-theme='default'] .code-body .hljs-tag,
+body[data-code-theme='default'] .tw-code .hljs-tag {
   color: #5b9a78;
 }
 
-.code-body .hljs-addition,
-.tw-code .hljs-addition,
+body[data-code-theme='default'] .code-body .hljs-addition,
+body[data-code-theme='default'] .tw-code .hljs-addition,
 .tw-term .ansi-green {
   color: #5b9a78;
 }
 
-.code-body .hljs-deletion,
-.tw-code .hljs-deletion,
+body[data-code-theme='default'] .code-body .hljs-deletion,
+body[data-code-theme='default'] .tw-code .hljs-deletion,
 .tw-term .ansi-red {
   color: #c4663f;
 }
 
-body[data-theme='dark'] .code-body .hljs-string,
-body[data-theme='dark'] .code-body .hljs-attr,
-body[data-theme='dark'] .code-body .hljs-symbol,
-body[data-theme='dark'] .code-body .hljs-quote,
-body[data-theme='dark'] .tw-code .hljs-string,
-body[data-theme='dark'] .tw-code .hljs-attr,
-body[data-theme='dark'] .tw-code .hljs-symbol,
-body[data-theme='dark'] .tw-code .hljs-quote {
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-string,
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-attr,
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-symbol,
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-quote,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-string,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-attr,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-symbol,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-quote {
   color: #9bc88a;
 }
 
-body[data-theme='dark'] .code-body .hljs-number,
-body[data-theme='dark'] .tw-code .hljs-number {
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-number,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-number {
   color: #e0a774;
 }
 
-body[data-theme='dark'] .code-body .hljs-title,
-body[data-theme='dark'] .code-body .hljs-name,
-body[data-theme='dark'] .code-body .hljs-section,
-body[data-theme='dark'] .tw-code .hljs-title,
-body[data-theme='dark'] .tw-code .hljs-name,
-body[data-theme='dark'] .tw-code .hljs-section {
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-title,
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-name,
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-section,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-title,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-name,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-section {
   color: #6ab1e8;
 }
 
-body[data-theme='dark'] .code-body .hljs-variable,
-body[data-theme='dark'] .code-body .hljs-template-variable,
-body[data-theme='dark'] .code-body .hljs-attribute,
-body[data-theme='dark'] .tw-code .hljs-variable,
-body[data-theme='dark'] .tw-code .hljs-template-variable,
-body[data-theme='dark'] .tw-code .hljs-attribute {
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-variable,
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-template-variable,
+body[data-theme='dark'][data-code-theme='default'] .code-body .hljs-attribute,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-variable,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-template-variable,
+body[data-theme='dark'][data-code-theme='default'] .tw-code .hljs-attribute {
   color: #c992c8;
 }
 
