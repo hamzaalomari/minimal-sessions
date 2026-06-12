@@ -92,6 +92,10 @@ export interface Api {
     closeWindow(): Promise<void>;
     /** User's home directory, used to tilde-collapse paths for display. */
     homeDir(): Promise<string>;
+    /** Open a URL in the user's default browser. Only http(s) URLs are
+     *  honored; anything else (file://, javascript:, custom schemes) is
+     *  silently ignored. */
+    openExternal(url: string): Promise<void>;
     /**
      * Subscribe to "user pressed Cmd+W" (or the platform equivalent), fired
      * by the application menu. Renderer decides what to do — close an active

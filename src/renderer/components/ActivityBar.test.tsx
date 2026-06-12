@@ -11,6 +11,8 @@ const base = {
   onToggleSide: noop,
   onSelectSessions: noop,
   onSelectHistory: noop,
+  onSelectAnalytics: noop,
+  onSelectPlugins: noop,
 };
 
 describe('<ActivityBar />', () => {

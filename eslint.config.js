@@ -20,6 +20,7 @@ const nodeGlobals = {
   clearInterval: 'readonly',
   AbortController: 'readonly',
   Promise: 'readonly',
+  URL: 'readonly',
 };
 
 export default [
