@@ -100,6 +100,7 @@ const api: Api = {
     delete: (id) => ipcRenderer.invoke('sessions:delete', id),
     restore: (id) => ipcRenderer.invoke('sessions:restore', id),
     purge: (id) => ipcRenderer.invoke('sessions:purge', id),
+    purgeAllDeleted: () => ipcRenderer.invoke('sessions:purge-all-deleted'),
   },
   turns: {
     list: (sessionId) => ipcRenderer.invoke('turns:list', sessionId),

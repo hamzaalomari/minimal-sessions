@@ -251,6 +251,33 @@ describe('SessionsDb', () => {
       expect(db.listTurns('s')).toEqual([]);
     });
   });
+
+  describe('purgeAllDeleted', () => {
+    it('removes every soft-deleted session and reports the count', () => {
+      db.createSession({ id: 'a', name: 'A', path: '/a', model: 'm', createdAt: 1 });
+      db.createSession({ id: 'b', name: 'B', path: '/b', model: 'm', createdAt: 2 });
+      db.createSession({ id: 'c', name: 'C', path: '/c', model: 'm', createdAt: 3 });
+      db.appendTurn('a', turn('ta', 'user', 'hi'));
+      db.appendTurn('b', turn('tb', 'user', 'hi'));
+      db.softDeleteSession('a');
+      db.softDeleteSession('b');
+      expect(db.listDeletedSessions()).toHaveLength(2);
+
+      expect(db.purgeAllDeleted()).toBe(2);
+      expect(db.listDeletedSessions()).toEqual([]);
+      // Active session 'c' is untouched.
+      expect(db.listSessions().map((s) => s.id)).toEqual(['c']);
+      // Cascaded turns are gone too.
+      expect(db.listTurns('a')).toEqual([]);
+      expect(db.listTurns('b')).toEqual([]);
+    });
+
+    it('is a no-op when there is nothing soft-deleted', () => {
+      db.createSession({ id: 'live', name: 'L', path: '/l', model: 'm', createdAt: 1 });
+      expect(db.purgeAllDeleted()).toBe(0);
+      expect(db.listSessions().map((s) => s.id)).toEqual(['live']);
+    });
+  });
 });
 
 describe('seedIfEmpty', () => {

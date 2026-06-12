@@ -369,6 +369,7 @@ function registerIpc(): void {
   ipcMain.handle('sessions:delete', (_e, id: SessionId) => getDb().softDeleteSession(id));
   ipcMain.handle('sessions:restore', (_e, id: SessionId) => getDb().restoreSession(id));
   ipcMain.handle('sessions:purge', (_e, id: SessionId) => getDb().deleteSession(id));
+  ipcMain.handle('sessions:purge-all-deleted', () => getDb().purgeAllDeleted());
   ipcMain.handle('sessions:list-deleted', () => getDb().listDeletedSessions());
 
   ipcMain.handle('turns:list', (_e, sessionId: SessionId) =>

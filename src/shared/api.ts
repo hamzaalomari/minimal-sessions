@@ -164,6 +164,9 @@ export interface Api {
     restore(id: SessionId): Promise<void>;
     /** Permanently delete a session and its turns. Used from the History view. */
     purge(id: SessionId): Promise<void>;
+    /** Permanently delete every soft-deleted session in one DB statement —
+     *  cascades to their turns. Returns the count of removed sessions. */
+    purgeAllDeleted(): Promise<number>;
   };
   turns: {
     list(sessionId: SessionId): Promise<Turn[]>;

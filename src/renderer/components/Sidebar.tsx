@@ -32,6 +32,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
     commitRename,
     restoreSession,
     purgeSession,
+    purgeAllDeleted,
   } = useSessions(
     useShallow((s) => ({
       sessions: s.sessions,
@@ -48,6 +49,7 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
       commitRename: s.commitRename,
       restoreSession: s.restoreSession,
       purgeSession: s.purgeSession,
+      purgeAllDeleted: s.purgeAllDeleted,
     })),
   );
 
@@ -198,6 +200,19 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
   }
 
   if (sidebarView === 'history') {
+    const onDeleteAll = (): void => {
+      const n = deletedSessions.length;
+      if (n === 0) return;
+      if (
+        window.confirm(
+          `Permanently delete all ${n} ${
+            n === 1 ? 'session' : 'sessions'
+          } in History? This cannot be undone.`,
+        )
+      ) {
+        purgeAllDeleted();
+      }
+    };
     return (
       <aside className="sidebar" aria-label="History">
         <div className="sidebar-hd">
@@ -205,14 +220,28 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
             <span>History</span>
             <span className="side-count">{deletedSessions.length}</span>
           </div>
-          <button
-            className="new-btn"
-            onClick={() => setSidebarView('sessions')}
-            title="Back to sessions"
-          >
-            <Icon name="chevR" />
-            Sessions
-          </button>
+          <div className="side-hd-actions">
+            {deletedSessions.length > 0 && (
+              <button
+                className="hist-clear-btn"
+                onClick={onDeleteAll}
+                title="Permanently delete every session in History"
+                aria-label="Delete all history"
+                data-testid="history-delete-all"
+              >
+                <Icon name="trash" />
+                Delete all
+              </button>
+            )}
+            <button
+              className="new-btn"
+              onClick={() => setSidebarView('sessions')}
+              title="Back to sessions"
+            >
+              <Icon name="chevR" />
+              Sessions
+            </button>
+          </div>
         </div>
         <div className="session-list scroll" role="list">
           {deletedSessions.length === 0 ? (

@@ -98,6 +98,7 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
       delete: vi.fn().mockResolvedValue(undefined),
       restore: vi.fn().mockResolvedValue(undefined),
       purge: vi.fn().mockResolvedValue(undefined),
+      purgeAllDeleted: vi.fn().mockResolvedValue(0),
     },
     turns: {
       list: vi.fn().mockResolvedValue([]),

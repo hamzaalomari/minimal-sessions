@@ -95,6 +95,10 @@ export interface SessionsDb {
   restoreSession(id: SessionId): void;
   /** Hard delete — cascades to turns. */
   deleteSession(id: SessionId): void;
+  /** Permanently delete every soft-deleted session in one statement. Used
+   *  by the "Delete all" button in the History view. Returns the count of
+   *  rows removed so callers can update local state without re-fetching. */
+  purgeAllDeleted(): number;
   /** Turns for a single session, ordered by creation time. */
   listTurns(sessionId: SessionId): Turn[];
   /** Append a turn AND atomically bump the session's tokens + usage + last_active. */
@@ -164,6 +168,7 @@ interface Statements {
   restoreSession: Statement<[string]>;
   listDeletedSessions: Statement<[], SessionRow>;
   deleteSession: Statement<[string]>;
+  purgeAllDeleted: Statement<[]>;
   listTurnsForSession: Statement<[string], TurnRow>;
   listAllTurns: Statement<[], TurnRow>;
   insertTurn: Statement<[
@@ -250,6 +255,9 @@ export function openSessionsDb(filename: string): SessionsDb {
       'UPDATE sessions SET deleted_at = 0 WHERE id = ?',
     ),
     deleteSession: db.prepare('DELETE FROM sessions WHERE id = ?'),
+    // Hard-delete every soft-deleted row. Turns cascade (ON DELETE CASCADE on
+    // turns.session_id), so this single statement also wipes their messages.
+    purgeAllDeleted: db.prepare('DELETE FROM sessions WHERE deleted_at != 0'),
     listTurnsForSession: db.prepare(
       'SELECT * FROM turns WHERE session_id = ? ORDER BY created_at ASC, id ASC',
     ) as Statement<[string], TurnRow>,
@@ -381,6 +389,10 @@ export function openSessionsDb(filename: string): SessionsDb {
     },
     deleteSession(id) {
       stmts.deleteSession.run(id);
+    },
+    purgeAllDeleted() {
+      const info = stmts.purgeAllDeleted.run();
+      return info.changes;
     },
     listTurns(sessionId) {
       return stmts.listTurnsForSession.all(sessionId).map(rowToTurn);

@@ -49,6 +49,8 @@ interface SessionsState {
   restoreSession(id: SessionId): void;
   /** Permanently delete a session that was already in the History bucket. */
   purgeSession(id: SessionId): void;
+  /** Permanently delete every session currently in the History bucket. */
+  purgeAllDeleted(): void;
   setSidebarView(view: SidebarView): void;
   setSearchQuery(q: string): void;
   /** Show/hide the embedded terminal for `id`. Toggling off also kills the PTY. */
@@ -239,6 +241,13 @@ export const useSessions = create<SessionsState>()(
           deletedSessions: s.deletedSessions.filter((x) => x.id !== id),
         }));
         void window.api?.sessions.purge(id).catch(() => {});
+      },
+
+      purgeAllDeleted: () => {
+        // Clear local state optimistically — even if the IPC fails, the worst
+        // case is a stale view that refreshes on next launch.
+        set({ deletedSessions: [] });
+        void window.api?.sessions.purgeAllDeleted().catch(() => {});
       },
 
       setSidebarView: (view) => set({ sidebarView: view }),
