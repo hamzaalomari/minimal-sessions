@@ -73,6 +73,10 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
       pickDirectory: vi.fn().mockResolvedValue('/Users/h/dev/fresh'),
       branchFor: vi.fn().mockResolvedValue('main'),
       isReadableDir: vi.fn().mockResolvedValue(true),
+      gitInitSession: vi.fn().mockImplementation(async (input) => ({
+        path: input.path,
+        branch: input.name ?? 'main',
+      })),
     },
     models: {
       list: vi.fn().mockResolvedValue([]),

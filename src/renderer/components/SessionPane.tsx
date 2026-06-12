@@ -61,6 +61,10 @@ export function SessionPane({ session }: SessionPaneProps) {
    *  focused get routed into the composer's textarea. */
   const armedRef = useRef(false);
   const [streaming, setStreamingLocal] = useState<StreamingTurn | null>(null);
+  /** Bumped every time the user sends. Drives Transcript's force-scroll-to-bottom
+   *  so the user always sees their new message + streaming reply, even if they
+   *  were scrolled up reading earlier history. */
+  const [pinNonce, setPinNonce] = useState(0);
   // The latest streaming state we can mutate from the event listener without
   // re-subscribing on every keystroke.
   const streamingRef = useRef<StreamingTurn | null>(null);
@@ -262,6 +266,9 @@ export function SessionPane({ session }: SessionPaneProps) {
     };
     appendTurn(session.id, userTurn);
     setDraft(session.id, '');
+    // Snap the transcript to the bottom — the user just hit Send, so they
+    // expect to see the new turn and the streaming reply that follows it.
+    setPinNonce((n) => n + 1);
     // Flip the sidebar status dot to "busy" right away — turn-start may be
     // milliseconds away but feedback should be immediate.
     setStreaming(session.id, true);
@@ -340,7 +347,11 @@ export function SessionPane({ session }: SessionPaneProps) {
             onSuggest={(t) => setDraft(session.id, t)}
           />
         ) : (
-          <Transcript session={displaySession} typing={!!streaming} />
+          <Transcript
+            session={displaySession}
+            typing={!!streaming}
+            pinToBottomNonce={pinNonce}
+          />
         )}
         {terminalOpen && (
           <>

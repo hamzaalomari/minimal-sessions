@@ -80,6 +80,7 @@ export default [
         ScrollBehavior: 'readonly',
         HTMLStyleElement: 'readonly',
         queueMicrotask: 'readonly',
+        alert: 'readonly',
       },
     },
     plugins: {

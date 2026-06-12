@@ -696,3 +696,67 @@ body[data-theme='dark'] .modal-scrim {
   font-size: var(--read-size);
   line-height: var(--read-line);
 }
+
+/* ───── Branch / worktree segmented control in NewSessionPanel ───── */
+.ns-seg {
+  display: flex;
+  gap: 6px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 4px;
+}
+
+.ns-seg-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dim);
+  font-family: var(--ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ns-seg-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ns-seg-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.ns-seg-btn.on {
+  background: color-mix(in oklch, var(--accent) 15%, var(--panel));
+  color: color-mix(in oklch, var(--accent) 80%, var(--text));
+}
+
+.ns-seg-btn.on svg {
+  color: color-mix(in oklch, var(--accent) 80%, var(--text));
+}
+
+.ns-git-name {
+  margin-top: 10px;
+}
+
+.ns-hint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+.ns-hint code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+}

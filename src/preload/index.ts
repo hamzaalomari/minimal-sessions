@@ -61,6 +61,7 @@ const api: Api = {
     pickDirectory: () => ipcRenderer.invoke('fs:pick-directory'),
     branchFor: (path) => ipcRenderer.invoke('fs:branch-for', path),
     isReadableDir: (path) => ipcRenderer.invoke('fs:is-readable-dir', path),
+    gitInitSession: (input) => ipcRenderer.invoke('fs:git-init-session', input),
   },
   models: {
     list: () => ipcRenderer.invoke('models:list'),

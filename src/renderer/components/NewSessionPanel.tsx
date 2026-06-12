@@ -7,12 +7,16 @@ import { SystemPromptField } from './SystemPromptField';
 import { useHomeDir } from '../state/sessions';
 import { basename, displayPath } from '../lib/paths';
 
+export type GitMode = 'none' | 'branch' | 'worktree';
+
 export interface NewSessionDraft {
   name: string;
   path: string;
   branch: string;
   model: ModelId;
   systemPrompt: string;
+  /** Git side-effect to run before the session opens. */
+  git: { mode: GitMode; name?: string };
 }
 
 interface NewSessionPanelProps {
@@ -38,13 +42,25 @@ export function NewSessionPanel({
   const [branch, setBranch] = useState('');
   const [model, setModel] = useState<ModelId>(defaultModel);
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [gitMode, setGitMode] = useState<GitMode>('none');
+  const [gitName, setGitName] = useState('');
   const [error, setError] = useState<string>('');
   const [picking, setPicking] = useState(false);
 
   const suggested = suggestNameFromPath(path);
   const effectiveName = name.trim() || suggested;
-  const canCreate = Boolean(path && effectiveName);
+  const trimmedGitName = gitName.trim();
+  const needsGitName = gitMode !== 'none';
+  const canCreate = Boolean(
+    path && effectiveName && (!needsGitName || trimmedGitName),
+  );
   const shownPath = path ? displayPath(path, home) : '';
+  // Preview of the resolved path when the user picks "worktree" — drops next
+  // to the working folder so they know where it'll land. Empty otherwise.
+  const worktreePreview =
+    gitMode === 'worktree' && path && trimmedGitName
+      ? `${path}-${trimmedGitName}`
+      : '';
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -87,6 +103,7 @@ export function NewSessionPanel({
       branch,
       model,
       systemPrompt: systemPrompt.trim(),
+      git: { mode: gitMode, ...(needsGitName ? { name: trimmedGitName } : {}) },
     });
   };
 
@@ -157,6 +174,64 @@ export function NewSessionPanel({
               <div className="ns-error" role="alert">
                 {error}
               </div>
+            )}
+          </div>
+
+          <div className="ns-field">
+            <label className="ns-label">Branch strategy</label>
+            <div
+              className="ns-seg"
+              role="radiogroup"
+              aria-label="Branch strategy"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={gitMode === 'none'}
+                className={'ns-seg-btn' + (gitMode === 'none' ? ' on' : '')}
+                onClick={() => setGitMode('none')}
+              >
+                <Icon name="branch" />
+                <span>Use current</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={gitMode === 'branch'}
+                className={'ns-seg-btn' + (gitMode === 'branch' ? ' on' : '')}
+                onClick={() => setGitMode('branch')}
+              >
+                <Icon name="branch" />
+                <span>New branch</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={gitMode === 'worktree'}
+                className={'ns-seg-btn' + (gitMode === 'worktree' ? ' on' : '')}
+                onClick={() => setGitMode('worktree')}
+              >
+                <Icon name="folder" />
+                <span>New worktree</span>
+              </button>
+            </div>
+            {needsGitName && (
+              <>
+                <input
+                  className="ns-input ns-git-name"
+                  value={gitName}
+                  placeholder={
+                    gitMode === 'branch' ? 'e.g. feature/login' : 'e.g. feature-x'
+                  }
+                  onChange={(e) => setGitName(e.target.value)}
+                />
+                {worktreePreview && (
+                  <div className="ns-hint">
+                    Worktree will be created at{' '}
+                    <code>{displayPath(worktreePreview, home)}</code>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

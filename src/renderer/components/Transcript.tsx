@@ -7,6 +7,10 @@ import { Turn } from './Turn';
 interface TranscriptProps {
   session: Session;
   typing?: boolean;
+  /** Increment this on the parent to force a scroll-to-bottom — used after
+   *  the user hits Send so they always see the new turn + streaming reply,
+   *  regardless of where they had previously scrolled. */
+  pinToBottomNonce?: number;
 }
 
 /** Pixels of slack at the bottom that still count as "at the bottom" — once
@@ -26,7 +30,11 @@ function scrollToBottom(el: HTMLElement): void {
 // Memoized at the top level. When the user types in the composer, SessionPane
 // re-renders with a new draft string, but the displaySession reference is
 // stable while not streaming — so Transcript (and its whole subtree) skips.
-export const Transcript = memo(function Transcript({ session, typing = false }: TranscriptProps) {
+export const Transcript = memo(function Transcript({
+  session,
+  typing = false,
+  pinToBottomNonce = 0,
+}: TranscriptProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
   /** True while incoming content should auto-scroll the view. Flips to false
@@ -42,6 +50,16 @@ export const Transcript = memo(function Transcript({ session, typing = false }: 
       scrollToBottom(el);
     }
   }, [session.id]);
+
+  // Parent-driven force-scroll. When the user sends a message, SessionPane
+  // bumps this nonce — we re-stick to the bottom and scroll, even if the user
+  // had previously scrolled up. Skip the no-op initial render at value 0.
+  useEffect(() => {
+    if (pinToBottomNonce === 0) return;
+    stickRef.current = true;
+    const el = ref.current;
+    if (el) scrollToBottom(el);
+  }, [pinToBottomNonce]);
 
   useEffect(() => {
     const outer = ref.current;

@@ -40,7 +40,21 @@ export interface SdkModel {
 export interface SlashCommand {
   name: string;
   description?: string;
-  scope: 'user' | 'project' | 'plugin';
+  scope: 'project' | 'user' | 'plugin' | 'builtin';
+}
+
+/** Branch / worktree options for the New Session panel — sent to the main
+ *  process before the session is created so git side-effects happen up-front. */
+export interface GitInitSessionInput {
+  path: string;
+  mode: 'none' | 'branch' | 'worktree';
+  name?: string;
+}
+
+/** Resolved path + branch the new session should open against. */
+export interface GitInitSessionResult {
+  path: string;
+  branch: string;
 }
 
 /** Events streamed back from `api.chat.send()`. */
@@ -99,6 +113,11 @@ export interface Api {
     branchFor(path: string): Promise<string>;
     /** True if `path` is an existing, readable directory. */
     isReadableDir(path: string): Promise<boolean>;
+    /** Run the git side-effect the user picked in the New Session panel — none
+     *  (no-op), branch (switch -c), or worktree (worktree add -b). Returns the
+     *  resolved path + branch the session should open against. Throws with a
+     *  human-readable message on failure. */
+    gitInitSession(input: GitInitSessionInput): Promise<GitInitSessionResult>;
   };
   models: {
     /** All models the locally-installed Claude SDK advertises. Cached per session. */

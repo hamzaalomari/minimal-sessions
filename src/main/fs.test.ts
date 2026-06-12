@@ -2,8 +2,25 @@ import { promises as fs } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { branchFor, dirExists, expandTilde } from './fs';
+import { branchFor, dirExists, expandTilde, gitInitSession } from './fs';
+
+const execFileP = promisify(execFile);
+
+/** Initialise a real git repo with a single commit at `dir`. The git CLI is
+ *  available on every dev machine and on CI, and using it here keeps the
+ *  test honest — we exercise the same code paths git would in production. */
+async function initRepo(dir: string): Promise<void> {
+  await execFileP('git', ['init', '-q', '-b', 'main', dir]);
+  await execFileP('git', ['-C', dir, 'config', 'user.email', 't@t']);
+  await execFileP('git', ['-C', dir, 'config', 'user.name', 'T']);
+  await execFileP('git', ['-C', dir, 'config', 'commit.gpgsign', 'false']);
+  await fs.writeFile(join(dir, 'README.md'), 'hi\n');
+  await execFileP('git', ['-C', dir, 'add', '.']);
+  await execFileP('git', ['-C', dir, 'commit', '-q', '-m', 'init']);
+}
 
 describe('branchFor', () => {
   let dir: string;
@@ -79,6 +96,72 @@ describe('dirExists', () => {
 
   it('returns false for an empty path', async () => {
     expect(await dirExists('')).toBe(false);
+  });
+});
+
+describe('gitInitSession', () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'ms-git-'));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+    // Worktrees land alongside the repo as `<dir>-<name>`.
+    await rm(`${dir}-feature`, { recursive: true, force: true });
+  });
+
+  it('mode: none returns the input path and current branch', async () => {
+    await initRepo(dir);
+    const result = await gitInitSession({ path: dir, mode: 'none' });
+    expect(result).toEqual({ path: dir, branch: 'main' });
+  });
+
+  it('mode: branch creates the branch and reports it as current', async () => {
+    await initRepo(dir);
+    const result = await gitInitSession({
+      path: dir,
+      mode: 'branch',
+      name: 'feature/x',
+    });
+    expect(result.path).toBe(dir);
+    expect(result.branch).toBe('feature/x');
+    expect(await branchFor(dir)).toBe('feature/x');
+  });
+
+  it('mode: worktree creates a sibling dir on a new branch', async () => {
+    await initRepo(dir);
+    const result = await gitInitSession({
+      path: dir,
+      mode: 'worktree',
+      name: 'feature',
+    });
+    expect(result.path).toBe(`${dir}-feature`);
+    expect(result.branch).toBe('feature');
+    expect(await dirExists(`${dir}-feature`)).toBe(true);
+    expect(await branchFor(`${dir}-feature`)).toBe('feature');
+  });
+
+  it('rejects invalid ref names without spawning git', async () => {
+    await initRepo(dir);
+    await expect(
+      gitInitSession({ path: dir, mode: 'branch', name: 'has spaces' }),
+    ).rejects.toThrow(/invalid/i);
+  });
+
+  it('fails clearly when the path is not a git repo', async () => {
+    await expect(
+      gitInitSession({ path: dir, mode: 'branch', name: 'feature' }),
+    ).rejects.toThrow(/not a git repository/i);
+  });
+
+  it('fails when the worktree target already exists', async () => {
+    await initRepo(dir);
+    await fs.mkdir(`${dir}-feature`, { recursive: true });
+    await expect(
+      gitInitSession({ path: dir, mode: 'worktree', name: 'feature' }),
+    ).rejects.toThrow(/already exists/i);
   });
 });
 

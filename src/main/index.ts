@@ -7,7 +7,7 @@ import { platform } from 'node:process';
 import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, TokenUsage, Turn } from '@shared/types';
 import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
-import { branchFor, dirExists } from './fs';
+import { branchFor, dirExists, gitInitSession, type GitInitSessionInput } from './fs';
 import { discoverCommands, setBuiltinCommandsDir } from './plugins';
 import {
   listSupportedModels,
@@ -284,6 +284,9 @@ function registerIpc(): void {
   });
   ipcMain.handle('fs:branch-for', (_e, path: string) => branchFor(path));
   ipcMain.handle('fs:is-readable-dir', (_e, path: string) => dirExists(path));
+  ipcMain.handle('fs:git-init-session', (_e, input: GitInitSessionInput) =>
+    gitInitSession(input),
+  );
 
   ipcMain.handle('models:list', async () => {
     if (modelsCache) return modelsCache;

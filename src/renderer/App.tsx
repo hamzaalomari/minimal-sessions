@@ -207,13 +207,33 @@ export function App() {
     ? sessions.find((s) => s.id === editingInstructionsFor) ?? null
     : null;
 
-  const handleCreate = (draft: NewSessionDraft) => {
+  const handleCreate = async (draft: NewSessionDraft) => {
+    let path = draft.path;
+    let branch = draft.branch;
+    // Run any git side-effect (new branch / new worktree) before we hand
+    // the session off to the DB. If it fails we surface the error and stop
+    // — no half-created session.
+    if (draft.git.mode !== 'none') {
+      try {
+        const result = await window.api.fs.gitInitSession({
+          path: draft.path,
+          mode: draft.git.mode,
+          ...(draft.git.name ? { name: draft.git.name } : {}),
+        });
+        path = result.path;
+        branch = result.branch;
+      } catch (e) {
+        const message = (e as Error)?.message || 'Git operation failed';
+        window.alert(message);
+        return;
+      }
+    }
     createSession({
       name: draft.name,
-      path: draft.path,
+      path,
       model: draft.model,
       systemPrompt: draft.systemPrompt,
-      branch: draft.branch,
+      branch,
     });
   };
 

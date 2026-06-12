@@ -59,6 +59,16 @@ export function SessionHead({ session }: SessionHeadProps) {
             {session.branch}
           </span>
         )}
+        {session.systemPrompt && session.systemPrompt.trim() !== '' && (
+          <span
+            className="sh-chip"
+            title={session.systemPrompt}
+            data-testid="system-prompt-chip"
+          >
+            <Icon name="spark" />
+            system prompt
+          </span>
+        )}
         {exists === false && (
           <span className="sh-chip sh-chip-warn" data-testid="folder-missing">
             <Icon name="alert" />
