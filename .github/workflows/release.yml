@@ -1,0 +1,93 @@
+name: Release
+
+# Tag a commit like `v0.1.0` and push → this workflow builds installers
+# on macOS (arm64 + x64) and Windows (x64) and uploads them to a draft
+# GitHub Release. We don't auto-publish; you review the artifacts and
+# flip the draft to released by hand.
+#
+# Code signing isn't wired yet — see specs/plan.md M5 punch list. Until
+# certs are in place, the produced installers are unsigned and trigger
+# Gatekeeper / SmartScreen warnings on install. Fine for dev testing.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Manual run for testing the build matrix without cutting a release.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.os-label }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os-label: macOS
+            runner: macos-14
+            arch: arm64
+            package: package:mac
+            artifact-glob: 'dist/*.{dmg,zip}'
+          - os-label: macOS
+            runner: macos-13
+            arch: x64
+            package: package:mac
+            artifact-glob: 'dist/*.{dmg,zip}'
+          - os-label: Windows
+            runner: windows-2022
+            arch: x64
+            package: package:win
+            artifact-glob: 'dist/*.exe'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build + package
+        env:
+          # Skip electron-builder's auto-publish — we'll attach to the
+          # draft release ourselves below.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS notarization stays off until certs are wired.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run ${{ matrix.package }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: minimal-sessions-${{ matrix.os-label }}-${{ matrix.arch }}
+          path: ${{ matrix.artifact-glob }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Draft release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create / update draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.exe
