@@ -79,6 +79,9 @@ const api: Api = {
   commands: {
     list: (cwd) => ipcRenderer.invoke('commands:list', cwd),
   },
+  skills: {
+    list: (cwd) => ipcRenderer.invoke('skills:list', cwd),
+  },
   chat: {
     send: (sessionId, userText, globalSystemPrompt = '') => {
       const turnId =

@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import type { SkillInfo } from '@shared/api';
 import { Modal } from './Modal';
 import { ACCENT_PRESETS } from '../data/accent-presets';
 import { CODE_THEMES } from '../data/code-themes';
 import { DARK_PRESETS, LIGHT_PRESETS } from '../data/theme-presets';
+import { useActiveSession } from '../state/sessions';
 import { useTweaks } from '../state/tweaks';
 
 interface TweaksPanelProps {
@@ -327,6 +330,77 @@ export function TweaksPanel({ onClose }: TweaksPanelProps) {
           data-testid="tweaks-system-prompt"
         />
       </div>
+      <LoadedSkillsSection />
     </Modal>
+  );
+}
+
+/** Read-only listing of skills the Agent SDK currently has access to. The
+ *  SDK invokes them autonomously when the conversation matches their
+ *  description, so this is purely informational. */
+function LoadedSkillsSection() {
+  const active = useActiveSession();
+  const cwd = active?.path ?? '';
+  const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    if (!window.api?.skills) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    window.api.skills
+      .list(cwd)
+      .then((list) => {
+        if (alive) {
+          setSkills(list);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setSkills([]);
+          setLoading(false);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [cwd]);
+
+  return (
+    <div className="tweaks-section" data-testid="loaded-skills">
+      <label className="ns-label">Loaded skills</label>
+      <div className="tweaks-hint">
+        Agent SDK skills picked up from <code>~/.claude/skills</code>, the
+        active session&rsquo;s <code>.claude/skills</code>, and any installed
+        plugins. Claude invokes them automatically when relevant — no slash
+        prefix needed.
+      </div>
+      {loading ? (
+        <div className="tw-skills-empty">Loading…</div>
+      ) : skills.length === 0 ? (
+        <div className="tw-skills-empty">
+          None found. Drop a folder into <code>~/.claude/skills/&lt;name&gt;</code>{' '}
+          with a <code>SKILL.md</code> inside to add one.
+        </div>
+      ) : (
+        <ul className="tw-skills">
+          {skills.map((s) => (
+            <li key={s.name} className="tw-skill-row">
+              <div className="tw-skill-head">
+                <span className="tw-skill-name">{s.name}</span>
+                <span className={'tw-skill-scope scope-' + s.scope}>{s.scope}</span>
+              </div>
+              {s.description && (
+                <div className="tw-skill-desc">{s.description}</div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

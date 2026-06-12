@@ -86,6 +86,9 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
     commands: {
       list: vi.fn().mockResolvedValue([]),
     },
+    skills: {
+      list: vi.fn().mockResolvedValue([]),
+    },
     chat: {
       send: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue(undefined),

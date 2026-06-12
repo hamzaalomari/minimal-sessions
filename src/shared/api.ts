@@ -43,6 +43,15 @@ export interface SlashCommand {
   scope: 'project' | 'user' | 'plugin' | 'builtin';
 }
 
+/** An Agent SDK skill the renderer can surface in the "Loaded skills" list.
+ *  Skills are autonomously invoked by the SDK when relevant — we don't list
+ *  them in autocomplete, just show users what's currently armed. */
+export interface SkillInfo {
+  name: string;
+  description?: string;
+  scope: 'project' | 'user' | 'plugin' | 'builtin';
+}
+
 /** Branch / worktree options for the New Session panel — sent to the main
  *  process before the session is created so git side-effects happen up-front. */
 export interface GitInitSessionInput {
@@ -134,6 +143,12 @@ export interface Api {
      *  files (~/.claude/commands, project commands) and plugin-bundled commands
      *  (namespaced `pluginName:cmdName`). Cached in main for ~30s. */
     list(cwd: string): Promise<SlashCommand[]>;
+  };
+  skills: {
+    /** Agent SDK skills available for the session at `cwd`. Read-only listing
+     *  for the UI — the SDK invokes them autonomously based on the
+     *  conversation. Cached in main for ~30s. */
+    list(cwd: string): Promise<SkillInfo[]>;
   };
   chat: {
     /**

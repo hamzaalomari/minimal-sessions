@@ -34,6 +34,14 @@ export interface SlashCommand {
   scope: 'project' | 'user' | 'plugin' | 'builtin';
 }
 
+/** A skill the SDK can invoke autonomously when relevant — surfaced for the
+ *  user to see what's currently armed. Same scopes as SlashCommand. */
+export interface SkillInfo {
+  name: string;
+  description?: string;
+  scope: 'project' | 'user' | 'plugin' | 'builtin';
+}
+
 /** Cache entry — keyed by cwd. The discovery itself is cheap (a couple of
  *  readdir + stat calls) but a chat session can issue many turns per minute,
  *  and re-scanning every time would burn IO for no real benefit. The TTL is
@@ -48,6 +56,7 @@ const cache = new Map<string, CacheEntry>();
 
 /** Same shape as the plugin path cache, but for the richer command listing. */
 const commandsCache = new Map<string, { commands: SlashCommand[]; expiresAt: number }>();
+const skillsCache = new Map<string, { skills: SkillInfo[]; expiresAt: number }>();
 
 /** Directory of commands shipped with the app itself — set once at startup
  *  by `main/index.ts` using `app.isPackaged` to pick dev vs. packaged path.
@@ -66,6 +75,7 @@ export function setBuiltinCommandsDir(dir: string | null): void {
 export function clearPluginCache(): void {
   cache.clear();
   commandsCache.clear();
+  skillsCache.clear();
 }
 
 /**
@@ -172,9 +182,83 @@ export function discoverCommands(cwd: string): SlashCommand[] {
   return commands;
 }
 
+/**
+ * Enumerate Agent SDK skills available for `cwd`. Each skill is a directory
+ * containing a `SKILL.md` file; the SDK invokes them autonomously when the
+ * conversation matches their description. Sources mirror discoverCommands:
+ *  1. `<cwd>/.claude/skills/<name>/SKILL.md`  — project
+ *  2. `~/.claude/skills/<name>/SKILL.md`      — user
+ *  3. `<plugin>/skills/<name>/SKILL.md`       — plugin (namespaced)
+ *
+ * No built-in scope: the app doesn't ship any skills today. Returned in the
+ * same priority order as commands (project > user > plugin) with dedup.
+ */
+export function discoverSkills(cwd: string): SkillInfo[] {
+  const cached = skillsCache.get(cwd);
+  if (cached && cached.expiresAt > Date.now()) return cached.skills;
+
+  const skills: SkillInfo[] = [];
+  const seen = new Set<string>();
+  const add = (s: SkillInfo): void => {
+    if (seen.has(s.name)) return;
+    seen.add(s.name);
+    skills.push(s);
+  };
+
+  if (cwd) {
+    for (const s of listSkillDirs(join(cwd, '.claude', 'skills'))) {
+      add({
+        name: s.name,
+        ...(s.description ? { description: s.description } : {}),
+        scope: 'project',
+      });
+    }
+  }
+  for (const s of listSkillDirs(join(homedir(), '.claude', 'skills'))) {
+    add({
+      name: s.name,
+      ...(s.description ? { description: s.description } : {}),
+      scope: 'user',
+    });
+  }
+  for (const plugin of discoverPlugins(cwd)) {
+    const pluginName = readPluginName(plugin.path);
+    if (!pluginName) continue;
+    for (const s of listSkillDirs(join(plugin.path, 'skills'))) {
+      add({
+        name: `${pluginName}:${s.name}`,
+        ...(s.description ? { description: s.description } : {}),
+        scope: 'plugin',
+      });
+    }
+  }
+
+  skills.sort((a, b) => a.name.localeCompare(b.name));
+  skillsCache.set(cwd, { skills, expiresAt: Date.now() + CACHE_TTL_MS });
+  return skills;
+}
+
 interface CommandFile {
   name: string;
   description?: string;
+}
+
+interface SkillFile {
+  name: string;
+  description?: string;
+}
+
+/** Each child directory of `root` containing a `SKILL.md` is a skill. We pull
+ *  its description from the same minimal YAML scanner used for command files. */
+function listSkillDirs(root: string): SkillFile[] {
+  const out: SkillFile[] = [];
+  for (const dir of safeListDirs(root)) {
+    const skillFile = join(root, dir, 'SKILL.md');
+    if (!existsSync(skillFile)) continue;
+    const description = readFrontmatterDescription(skillFile);
+    out.push({ name: dir, ...(description ? { description } : {}) });
+  }
+  return out;
 }
 
 /** List *.md files in a commands directory, parsing each one's frontmatter
