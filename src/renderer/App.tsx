@@ -224,6 +224,40 @@ export function App() {
     ? sessions.find((s) => s.id === editingInstructionsFor) ?? null
     : null;
 
+  /**
+   * Open the embedded terminal with `claude login` queued — first-launch
+   * authentication path for users whose SDK can't find existing credentials.
+   *
+   * If there's no active session, create a one-off "Setup" session at the
+   * user's home directory so we have somewhere to host the PTY. The user
+   * can delete it after auth.
+   */
+  const signInToClaude = async (): Promise<void> => {
+    const state = useSessions.getState();
+    let targetId = state.activeId;
+    if (!targetId) {
+      const home = await window.api.app.homeDir().catch(() => '~');
+      const session = state.createSession({
+        name: 'Claude Setup',
+        path: home,
+        model: 'claude-sonnet-4-6',
+        systemPrompt: '',
+        branch: '',
+      });
+      targetId = session.id;
+    }
+    state.setPendingTerminalCommand(targetId, 'claude login\n');
+    if (!state.terminalOpenIds.includes(targetId)) {
+      state.toggleTerminalOpen(targetId);
+    } else {
+      // Terminal already open — write directly since the consume hook only
+      // fires on PTY open. Pop our own command and write it now.
+      const cmd = state.consumePendingTerminalCommand(targetId);
+      if (cmd) void window.api.terminal.write(targetId, cmd);
+    }
+    state.selectSession(targetId);
+  };
+
   const handleCreate = async (draft: NewSessionDraft) => {
     let path = draft.path;
     let branch = draft.branch;
@@ -336,7 +370,26 @@ export function App() {
         ) : (
           <div className="main-placeholder">
             <strong>No session</strong>
-            Pick a session from the sidebar.
+            Pick a session from the sidebar, or{' '}
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setShowNew(true)}
+            >
+              create a new one
+            </button>
+            .
+            <div className="mp-auth">
+              <span>First time setting up?</span>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => void signInToClaude()}
+                data-testid="placeholder-sign-in"
+              >
+                Sign in to Claude
+              </button>
+            </div>
           </div>
         )}
       </main>
@@ -387,6 +440,10 @@ export function App() {
           onOpenTweaks={() => {
             setSettings(null);
             setShowTweaks(true);
+          }}
+          onSignInToClaude={() => {
+            setSettings(null);
+            void signInToClaude();
           }}
           onClose={() => setSettings(null)}
         />

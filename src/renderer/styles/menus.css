@@ -103,6 +103,15 @@
   margin-top: 1px;
 }
 
+.set-sub code {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--code-bg);
+  color: var(--dim);
+}
+
 .seg {
   display: flex;
   background: var(--canvas);

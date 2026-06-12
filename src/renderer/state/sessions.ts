@@ -36,6 +36,10 @@ interface SessionsState {
   terminalOpenIds: SessionId[];
   /** Sessions with an in-flight assistant turn. Transient — never persisted. */
   streamingIds: SessionId[];
+  /** Shell command to write into a session's PTY the moment it's ready —
+   *  used by the "Sign in to Claude" flow to auto-run `claude login`. The
+   *  Terminal component consumes (and clears) this on PTY open. */
+  pendingTerminalCommands: Record<SessionId, string>;
 
   /** Load sessions from main-process SQLite. Idempotent. */
   hydrate(): Promise<void>;
@@ -55,6 +59,12 @@ interface SessionsState {
   setSearchQuery(q: string): void;
   /** Show/hide the embedded terminal for `id`. Toggling off also kills the PTY. */
   toggleTerminalOpen(id: SessionId): void;
+  /** Schedule a one-shot command to be written into the session's PTY the
+   *  next time it's open and ready. */
+  setPendingTerminalCommand(id: SessionId, cmd: string): void;
+  /** Pop and return any scheduled command — Terminal component calls this
+   *  after the PTY signals it's ready. Returns undefined when empty. */
+  consumePendingTerminalCommand(id: SessionId): string | undefined;
   startRename(id: SessionId): void;
   commitRename(id: SessionId, name: string | null): void;
   setSideOpen(v: boolean): void;
@@ -80,7 +90,7 @@ const newId = (): string =>
 
 export const useSessions = create<SessionsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       sessions: [],
       deletedSessions: [],
       sidebarView: 'sessions',
@@ -95,6 +105,7 @@ export const useSessions = create<SessionsState>()(
       searchQuery: '',
       terminalOpenIds: [],
       streamingIds: [],
+      pendingTerminalCommands: {},
 
       hydrate: async () => {
         const [sessions, deletedSessions, home] = await Promise.all([
@@ -260,6 +271,22 @@ export const useSessions = create<SessionsState>()(
           }
           return { terminalOpenIds: [...s.terminalOpenIds, id] };
         }),
+
+      setPendingTerminalCommand: (id, cmd) =>
+        set((s) => ({
+          pendingTerminalCommands: { ...s.pendingTerminalCommands, [id]: cmd },
+        })),
+
+      consumePendingTerminalCommand: (id) => {
+        const cmd = get().pendingTerminalCommands[id];
+        if (!cmd) return undefined;
+        set((s) => {
+          const next = { ...s.pendingTerminalCommands };
+          delete next[id];
+          return { pendingTerminalCommands: next };
+        });
+        return cmd;
+      },
 
       startRename: (id) => set({ renamingId: id }),
 

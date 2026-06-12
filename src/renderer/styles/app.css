@@ -189,6 +189,29 @@
   margin-bottom: 4px;
 }
 
+.main-placeholder .link-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.main-placeholder .link-btn:hover {
+  filter: brightness(1.1);
+}
+
+.main-placeholder .mp-auth {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ───── Tab bar ───── */
 .tabbar {
   display: flex;
