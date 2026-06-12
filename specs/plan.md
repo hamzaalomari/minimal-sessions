@@ -103,12 +103,15 @@ Done. Highlights:
 - ✅ Accessibility pass: ARIA labels on icon-only buttons audited (all labeled); tab order + focus rings audited — `SessionItem` rows and `TabBar` tabs are keyboard-focusable (`tabindex=0`, Enter/Space activates, `:focus-visible` accent ring). Native buttons inherit the global `button:focus-visible` ring from `tokens.css`.
 - ✅ Brand + packaging: app icons wired (`resources/icon.png`, dev Dock override on macOS); `electron-builder` 26.x produces `dist/Minimal Sessions-<ver>-<arch>.dmg` + matching `.zip` for macOS and an NSIS installer for Windows; `asarUnpack` keeps `better-sqlite3` and `node-pty` native binaries outside `app.asar`.
 
-### M5 punch list (still open)
+### M5 punch list
 
-- **Code signing.** `mac.identity` is `null` (skip); Windows has no signing config. Production builds need an Apple Developer ID + Windows Authenticode cert.
-- **Cross-arch builds.** The `better-sqlite3` prebuild is host-arch only. x64 Mac and Windows installers need a matching host or CI matrix.
-- **`CONTRIBUTING.md`** — dev / build / test commands not yet documented for outside contributors.
-- **Smoke-test on a clean macOS install and a clean Windows install.**
+- ✅ `CONTRIBUTING.md` — landed in PR #19 with prerequisites, day-to-day scripts, ABI flip-flop notes, project layout, PR conventions, and load-bearing architecture decisions.
+- ✅ Cross-arch builds — `.github/workflows/release.yml` (PR #21) builds installers on macOS arm64 (macos-14), macOS x64 (macos-13), and Windows x64 (windows-2022). Tag `v*` to trigger; artifacts upload to a draft GitHub Release.
+
+Still open:
+
+- **Code signing.** `mac.identity` is `null` (skip); Windows has no signing config. Production builds need an Apple Developer ID + Windows Authenticode cert. The release workflow has explicit `CSC_IDENTITY_AUTO_DISCOVERY=false` so it'd be a one-env-var change once the cert + secret are in place.
+- **Smoke-test on a clean macOS install and a clean Windows install.** Tracked but not yet done.
 
 ## M6 — Product depth (post-ship)
 
@@ -133,21 +136,24 @@ Done. Highlights:
 - **System prompt visibility.** SessionHead shows a `system prompt` chip when a session has one configured. Both global (tweaks) and per-session prompts continue to be concatenated and passed every turn — covered by four `chat.test.ts` cases.
 - **Bundled starter commands.** `resources/commands/` ships `security-review`, `explain`, `test`, `refactor`, `diff-review`, `commit`. Installed by `extraResources`, surfaced as lowest-priority `'builtin'` scope so user files always win.
 
-### M6 punch list (still open)
+### M6 punch list
 
-- **Plugin marketplace integration.** Browse / install plugins from inside the app. Currently users drop folders into `~/.claude/plugins/` by hand or run `claude plugin install` in a shell.
-- **One-click "Connect to Claude" UX.** For users who haven't run `claude login`, surface a button that drops them into a PTY pre-running `claude login`.
-- **More built-in commands.** Currently 6 — `pr-description`, `migration`, `bench`, etc. would round out the set.
-- **Skill discovery UI.** The SDK can autonomously invoke skills from `plugin/skills/<name>/SKILL.md`. We pass the plugin path so they load, but don't surface them in any UI yet.
-- **Auto-update channel.** No update mechanism shipped.
+- ✅ "Connect to Claude" UX (PR #18) — Settings + main placeholder gained a "Sign in to Claude" action that opens the embedded terminal pre-running `claude login`. Creates a one-off "Claude Setup" session if there's no host session available.
+- ✅ More built-in commands (PR #19) — added `pr-description`, `migration`, `bench`, `release-notes`. Currently 10 built-ins.
+- ✅ Skill discovery UI (PR #20) — Tweaks panel grew a "Loaded skills" section listing every SDK skill currently armed for the active session, with scope badges and descriptions. Backed by new `discoverSkills()` + `skills:list` IPC.
+- ✅ Plugin marketplace integration (PR #22) — new Plugins sidebar view with 5 curated entries (Superpowers, awesome-claude-code, Claude Command Suite, Frontend Design, awesome-claude-plugins). One-click install runs `claude plugin install <id>` in the embedded terminal. Adding entries is a one-line change in `src/renderer/data/plugin-marketplace.ts`.
+
+Still open:
+
+- **Auto-update channel.** No update mechanism shipped. Once the release workflow is signing, electron-updater + the existing release flow is the obvious next step.
 
 **Acceptance**
 
 - [ ] `npm run package` produces signed installers for macOS (Developer ID) and Windows (Authenticode).
-- [ ] All keyboard shortcuts behave as specified.
-- [ ] The only external network call is what the Agent SDK / Claude binary makes — the app itself never reaches out.
-- [ ] No console warnings in dev or production builds.
-- [ ] First-launch UX: a developer who has *not* run `claude login` is given a clear path forward (currently degrades silently).
+- [x] All keyboard shortcuts behave as specified.
+- [x] The only external network call is what the Agent SDK / Claude binary makes (or `app.openExternal()` for explicit user-clicked links) — the app itself never reaches out.
+- [x] No console warnings in dev or production builds.
+- [x] First-launch UX: a developer who has *not* run `claude login` has a clear path forward via Settings → Sign in to Claude (PR #18).
 
 ## Dependencies & ordering
 

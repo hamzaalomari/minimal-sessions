@@ -136,7 +136,22 @@ The status bar carries two controls: the **token meter** (left of the theme togg
 - **FR-N8.** Git errors (path is not a repo, ref name invalid or taken, target directory exists, etc.) surface verbatim and abort session creation — no half-created sessions.
 - **FR-N9.** `branchFor` reads the worktree's gitdir from `<path>/.git` when it's a file pointer rather than a directory, so the SessionHead branch chip is correct in worktrees too.
 
-### 4.12 Analytics view (M6)
+### 4.12 Plugin marketplace + sign-in flow (M6)
+
+- **FR-P1.** A "Plugins" sidebar view (activity bar icon: chip outline) lists a curated set of community plugins. Each card shows name, author, description, tags, and an Install button. The list is hand-curated in `src/renderer/data/plugin-marketplace.ts`; adding an entry is a one-line change.
+- **FR-P2.** Clicking **Install** shows a confirm modal with the exact `claude plugin install <id>` command. Confirming opens the embedded terminal sub-tab of the active session (creating a one-off "Plugin Install" session at `~` if there's none) and writes the command. The Claude CLI on the user's `PATH` handles the actual install.
+- **FR-P3.** A **"Sign in to Claude"** action in Settings (and in the main placeholder when no session is selected) opens the embedded terminal with `claude login` queued. Creates a one-off "Claude Setup" session at `~` if there's no active session. This is the documented first-launch path for users whose SDK can't find existing credentials.
+- **FR-P4.** Both flows use a `pendingTerminalCommand` field on the sessions store. The Terminal component pops it on PTY open and writes after 250ms so the user's shell prompt prints before our characters arrive.
+
+### 4.13 External links (M6)
+
+- **FR-E1.** Any "open in browser" action goes through `app.openExternal(url)` IPC. Main validates that the URL is `http:` or `https:` and ignores anything else (no `file://`, no `javascript:`, no custom schemes). The renderer never gets direct shell access.
+
+### 4.14 Loaded skills view (M6)
+
+- **FR-K6.** Tweaks panel has a "Loaded skills" section listing every Agent SDK skill currently armed for the active session. Read-only — the SDK invokes them autonomously based on the conversation. Same priority + scope rules as slash commands (project > user > plugin; no built-in scope since we don't ship any skills today).
+
+### 4.15 Analytics view (M6)
 
 - **FR-A1.** The activity bar's analytics icon opens a sidebar view showing total tokens and total estimated cost across **all** sessions (active + deleted).
 - **FR-A2.** A time-range selector (24h / 7d / 30d / all) filters the totals. Per-turn `usage` is persisted in `turns.tokens_input / output / cache_w / cache_r` columns added during M6. Legacy turns without per-turn usage attribute to `session.lastActiveAt` so non-`all` ranges aren't deceptively empty for older sessions.
