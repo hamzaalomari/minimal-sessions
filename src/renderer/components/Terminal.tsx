@@ -3,6 +3,7 @@ import { Terminal as Xterm, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { Session } from '@shared/types';
 import { Icon } from './Icon';
+import { useSessions } from '../state/sessions';
 import { useTweaks } from '../state/tweaks';
 
 interface TerminalProps {
@@ -90,6 +91,17 @@ export function Terminal({ session, onClose }: TerminalProps) {
       .open(session.id, session.path, term.cols, term.rows)
       .then(() => {
         term.focus();
+        // If something queued a command to run on open (e.g. "Sign in to
+        // Claude" → `claude login`), write it now. Small delay so the shell
+        // has time to print its prompt before our characters arrive.
+        const pending = useSessions
+          .getState()
+          .consumePendingTerminalCommand(session.id);
+        if (pending) {
+          setTimeout(() => {
+            void window.api.terminal.write(session.id, pending);
+          }, 250);
+        }
       })
       .catch((e) => {
         term.writeln(`\x1b[31m[failed to open shell: ${(e as Error).message}]\x1b[0m`);

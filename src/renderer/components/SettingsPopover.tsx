@@ -11,6 +11,9 @@ interface SettingsPopoverProps {
   onThemeChange(theme: Theme): void;
   onDensityChange(density: Density): void;
   onOpenTweaks?(): void;
+  /** Open the embedded terminal pre-running `claude login` so the user can
+   *  authenticate the bundled Claude binary without leaving the app. */
+  onSignInToClaude?(): void;
   onClose(): void;
   /** The button that opened the popover. Mousedown on it is ignored by the
    *  close handler so a second click on it can toggle the popover closed. */
@@ -24,6 +27,7 @@ export function SettingsPopover({
   onThemeChange,
   onDensityChange,
   onOpenTweaks,
+  onSignInToClaude,
   onClose,
   triggerEl,
 }: SettingsPopoverProps) {
@@ -92,6 +96,26 @@ export function SettingsPopover({
           </button>
         </div>
       </div>
+      {onSignInToClaude && (
+        <>
+          <div className="set-sep" />
+          <button
+            type="button"
+            className="set-row set-action"
+            onClick={onSignInToClaude}
+            data-testid="sign-in-to-claude"
+          >
+            <div>
+              <div className="set-label">Sign in to Claude</div>
+              <div className="set-sub">
+                Runs <code>claude login</code> in a terminal — needed once if
+                the SDK can&rsquo;t find existing credentials.
+              </div>
+            </div>
+            <Icon name="terminal" style={{ width: 18, height: 18, color: 'var(--faint)' }} />
+          </button>
+        </>
+      )}
       <div className="set-sep" />
       <button
         type="button"
