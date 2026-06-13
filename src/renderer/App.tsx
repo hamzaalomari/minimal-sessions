@@ -232,8 +232,11 @@ export function App() {
     : null;
 
   /**
-   * Open the embedded terminal with `claude login` queued — first-launch
-   * authentication path for users whose SDK can't find existing credentials.
+   * Open the embedded terminal, start the `claude` REPL, then send `/login`
+   * inside it — first-launch authentication path for users whose SDK can't
+   * find existing credentials. The two writes are queued via the
+   * pendingTerminalCommand pattern with delays so claude is ready before
+   * the slash command arrives.
    *
    * If there's no active session, create a one-off "Setup" session at the
    * user's home directory so we have somewhere to host the PTY. The user

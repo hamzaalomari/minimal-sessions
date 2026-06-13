@@ -12,8 +12,8 @@ interface SettingsPopoverProps {
   onThemeChange(theme: Theme): void;
   onDensityChange(density: Density): void;
   onOpenTweaks?(): void;
-  /** Open the embedded terminal pre-running `claude login` so the user can
-   *  authenticate the bundled Claude binary without leaving the app. */
+  /** Open the embedded terminal, start the `claude` REPL, and send `/login`
+   *  inside it so the user can authenticate without leaving the app. */
   onSignInToClaude?(): void;
   onClose(): void;
   /** The button that opened the popover. Mousedown on it is ignored by the
@@ -157,8 +157,9 @@ export function SettingsPopover({
             <div>
               <div className="set-label">Sign in to Claude</div>
               <div className="set-sub">
-                Runs <code>claude login</code> in a terminal — needed once if
-                the SDK can&rsquo;t find existing credentials.
+                Opens a terminal, starts <code>claude</code>, and sends{' '}
+                <code>/login</code> — needed once if the SDK can&rsquo;t find
+                existing credentials.
               </div>
             </div>
             <Icon name="terminal" style={{ width: 18, height: 18, color: 'var(--faint)' }} />
