@@ -166,6 +166,14 @@ The status bar carries two controls: the **token meter** (left of the theme togg
 - **FR-AU3.** `UpdateBanner.tsx` floats above the status bar and is silent on idle / not-available / checking. It only renders for `available` / `downloading` / `ready` / `error`. The Restart CTA calls `quitAndInstall()`; Retry re-triggers a check.
 - **FR-AU4.** `MS_DISABLE_AUTO_UPDATE=1` at launch turns the channel off entirely. Dev builds skip the check unconditionally.
 - **FR-AU5.** The release workflow uploads `latest-mac.yml` / `latest.yml` metadata files alongside the installers so `electron-updater` can read them. Until installers are signed, downloaded updates still install via Gatekeeper / SmartScreen prompts.
+- **FR-AU6.** The Settings popover exposes a manual **Check for updates** row that triggers the same lifecycle as the 6h poll. Its sub-label reflects the live updater state (\"Checking…\", \"v1.2.0 found\", \"Downloading… 42%\", \"v1.2.0 ready — restart to install\", or the last error). The row is disabled when the updater isn't enabled. The popover also shows the current `app.getVersion()` at the bottom.
+
+### 4.17 Keyboard shortcuts cheatsheet (M6)
+
+- **FR-KB1.** ⌘/ (Ctrl+/ on Windows + Linux) opens an in-app cheatsheet listing every bound shortcut, grouped by category (Sessions & tabs / View & navigation / Composer). Escape, the close button, or a scrim click closes it.
+- **FR-KB2.** The cheatsheet source-of-truth is `src/renderer/data/shortcuts.ts`. Adding a new accelerator in `src/main/index.ts` requires a row there too.
+- **FR-KB3.** Combos are stored in mac form (⌘ ⇧ ⌥); the `renderCombo()` helper rewrites to Ctrl+/Shift+/Alt+ on non-mac before display.
+- **FR-KB4.** A "Keyboard Shortcuts" item appears in the View menu and shares the same IPC trigger.
 
 ## 5. Non-functional requirements
 
