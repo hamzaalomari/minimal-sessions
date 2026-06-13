@@ -37,6 +37,13 @@
       "out/**/*",
       "package.json"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "hamzaalomari",
+        "repo": "minimal-sessions"
+      }
+    ],
     "extraResources": [
       {
         "from": "resources/commands",

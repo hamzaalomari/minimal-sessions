@@ -25,6 +25,12 @@ import {
   resizeTerminal,
   writeTerminal,
 } from './terminal';
+import {
+  checkForUpdatesNow,
+  getUpdaterState,
+  initAutoUpdater,
+  quitAndInstallUpdate,
+} from './updater';
 import { SEED_SESSIONS } from '@shared/seed';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -479,6 +485,10 @@ function registerIpc(): void {
       win.webContents.send('terminal:exit', sessionId, code);
     }
   });
+
+  ipcMain.handle('updater:get-state', () => getUpdaterState());
+  ipcMain.handle('updater:check', () => checkForUpdatesNow());
+  ipcMain.handle('updater:install', () => quitAndInstallUpdate());
 }
 
 app.whenReady().then(() => {
@@ -501,7 +511,14 @@ app.whenReady().then(() => {
   seedIfEmpty(sessionsDb, SEED_SESSIONS);
   registerIpc();
   Menu.setApplicationMenu(buildMenu());
-  createWindow();
+  const win = createWindow();
+
+  // Arm electron-updater. The function bails out in dev / when
+  // MS_DISABLE_AUTO_UPDATE=1, and the renderer reads the disabled state
+  // before showing any banner — so it's safe to call unconditionally.
+  void initAutoUpdater(() => {
+    return BrowserWindow.getAllWindows().find((w) => !w.isDestroyed()) ?? win;
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

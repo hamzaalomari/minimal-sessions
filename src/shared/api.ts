@@ -14,6 +14,28 @@ export type ModelId = string;
 /** Subset of `NodeJS.Platform` re-declared in plain TS so the renderer doesn't need @types/node. */
 export type Platform = 'darwin' | 'win32' | 'linux' | 'freebsd' | 'openbsd' | 'sunos' | 'aix';
 
+/** Auto-update lifecycle the renderer reflects in its banner. */
+export type UpdaterStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'ready'
+  | 'error';
+
+/** Snapshot of the auto-updater the renderer subscribes to. `enabled` is
+ *  false in dev builds and when `MS_DISABLE_AUTO_UPDATE=1` was set at
+ *  launch — the banner is hidden entirely in those cases. */
+export interface UpdaterState {
+  status: UpdaterStatus;
+  version?: string;
+  /** Download progress 0..1 (only set while status === 'downloading'). */
+  progress?: number;
+  error?: string;
+  enabled: boolean;
+}
+
 export type Unsubscribe = () => void;
 
 export interface CreateSessionInput {
@@ -201,6 +223,19 @@ export interface Api {
       addTokens?: number,
       addUsage?: TokenUsage,
     ): Promise<void>;
+  };
+  updater: {
+    /** Read the current updater snapshot. Renderer hydrates with this on
+     *  mount, then subscribes via `onState`. */
+    getState(): Promise<UpdaterState>;
+    /** Force an immediate check. Triggers the same lifecycle as the
+     *  background poller. */
+    check(): Promise<void>;
+    /** Quit and install a downloaded update. No-op when none is staged. */
+    install(): Promise<void>;
+    /** Push updates from the main process. Replays the latest snapshot
+     *  when state changes (after a check, on download progress, etc.). */
+    onState(handler: (state: UpdaterState) => void): Unsubscribe;
   };
   terminal: {
     /** Spawn (or reuse) a PTY for this session with cwd = session.path. */
