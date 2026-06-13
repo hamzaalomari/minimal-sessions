@@ -40,6 +40,12 @@ interface SessionsState {
    *  used by the "Sign in to Claude" flow to auto-run `claude login`. The
    *  Terminal component consumes (and clears) this on PTY open. */
   pendingTerminalCommands: Record<SessionId, string>;
+  /** Plugin `installId`s the user has dispatched at least once. Used in the
+   *  Plugin marketplace to badge already-tried plugins. We don't actually
+   *  know if the install succeeded — the terminal owns that — but knowing
+   *  the user has *seen* the install command run is enough to avoid the
+   *  CTA shouting "Install" at them next time. */
+  dispatchedInstalls: string[];
 
   /** Load sessions from main-process SQLite. Idempotent. */
   hydrate(): Promise<void>;
@@ -65,6 +71,9 @@ interface SessionsState {
   /** Pop and return any scheduled command — Terminal component calls this
    *  after the PTY signals it's ready. Returns undefined when empty. */
   consumePendingTerminalCommand(id: SessionId): string | undefined;
+  /** Mark `installId` as one the user has dispatched. Adds to the persisted
+   *  set — idempotent. */
+  markInstallDispatched(installId: string): void;
   startRename(id: SessionId): void;
   commitRename(id: SessionId, name: string | null): void;
   setSideOpen(v: boolean): void;
@@ -106,6 +115,7 @@ export const useSessions = create<SessionsState>()(
       terminalOpenIds: [],
       streamingIds: [],
       pendingTerminalCommands: {},
+      dispatchedInstalls: [],
 
       hydrate: async () => {
         const [sessions, deletedSessions, home] = await Promise.all([
@@ -288,6 +298,13 @@ export const useSessions = create<SessionsState>()(
         return cmd;
       },
 
+      markInstallDispatched: (installId) =>
+        set((s) =>
+          s.dispatchedInstalls.includes(installId)
+            ? s
+            : { dispatchedInstalls: [...s.dispatchedInstalls, installId] },
+        ),
+
       startRename: (id) => set({ renamingId: id }),
 
       commitRename: (id, name) => {
@@ -377,8 +394,9 @@ export const useSessions = create<SessionsState>()(
         activeId: s.activeId,
         sideOpen: s.sideOpen,
         drafts: s.drafts,
+        dispatchedInstalls: s.dispatchedInstalls,
       }),
-      version: 2,
+      version: 3,
     },
   ),
 );
