@@ -13,6 +13,7 @@ function installMinimalApi(): void {
       platform: vi.fn().mockResolvedValue('darwin'),
       closeWindow: vi.fn().mockResolvedValue(undefined),
       homeDir: vi.fn().mockResolvedValue('/Users/h'),
+      version: vi.fn().mockResolvedValue('0.0.0'),
       openExternal: vi.fn().mockResolvedValue(undefined),
       onRequestCloseTab: vi.fn(() => () => {}),
       onRequestNewSession: vi.fn(() => () => {}),

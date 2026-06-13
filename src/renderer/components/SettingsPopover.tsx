@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { UpdaterState } from '@shared/api';
 import type { Density, Theme } from '../state/tweaks';
 import { Icon } from './Icon';
 import { usePopoverClose } from '../lib/usePopoverClose';
@@ -33,6 +34,54 @@ export function SettingsPopover({
 }: SettingsPopoverProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   usePopoverClose(ref, onClose, { triggerEl });
+
+  // Lightweight Updates section. We always show the version (works in dev
+  // too via package.json), but only show the Check-for-updates action when
+  // the updater is actually enabled — otherwise it would do nothing.
+  const [version, setVersion] = useState<string>('');
+  const [updater, setUpdater] = useState<UpdaterState | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void window.api?.app?.version?.().then((v) => {
+      if (!cancelled) setVersion(v);
+    });
+    void window.api?.updater?.getState?.().then((s) => {
+      if (!cancelled) setUpdater(s);
+    });
+    const off = window.api?.updater?.onState?.((s) => setUpdater(s));
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  }, []);
+
+  const updateLabel = (() => {
+    if (!updater?.enabled) return 'Auto-update disabled (dev build)';
+    switch (updater.status) {
+      case 'checking':
+        return 'Checking for updates…';
+      case 'downloading':
+        return typeof updater.progress === 'number'
+          ? `Downloading update… ${Math.round(updater.progress * 100)}%`
+          : 'Downloading update…';
+      case 'available':
+        return updater.version
+          ? `Update v${updater.version} found`
+          : 'Update found';
+      case 'ready':
+        return updater.version
+          ? `v${updater.version} ready — restart to install`
+          : 'Restart to install update';
+      case 'not-available':
+        return 'You are on the latest version';
+      case 'error':
+        return updater.error
+          ? `Last check failed: ${updater.error}`
+          : 'Last update check failed';
+      default:
+        return 'Click to check for updates';
+    }
+  })();
 
   return (
     <div
@@ -120,6 +169,24 @@ export function SettingsPopover({
       <button
         type="button"
         className="set-row set-action"
+        onClick={() => {
+          if (updater?.enabled) void window.api.updater.check();
+        }}
+        disabled={!updater?.enabled || updater?.status === 'checking'}
+        data-testid="check-for-updates"
+      >
+        <div>
+          <div className="set-label">
+            {updater?.enabled ? 'Check for updates' : 'Updates'}
+          </div>
+          <div className="set-sub">{updateLabel}</div>
+        </div>
+        <Icon name="spark" style={{ width: 18, height: 18, color: 'var(--faint)' }} />
+      </button>
+      <div className="set-sep" />
+      <button
+        type="button"
+        className="set-row set-action"
         onClick={onOpenTweaks}
         data-testid="open-tweaks"
       >
@@ -129,6 +196,11 @@ export function SettingsPopover({
         </div>
         <Icon name="sliders" style={{ width: 18, height: 18, color: 'var(--faint)' }} />
       </button>
+      {version && (
+        <div className="set-version" aria-label={`Version ${version}`}>
+          Minimal Sessions v{version}
+        </div>
+      )}
     </div>
   );
 }

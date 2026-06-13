@@ -114,6 +114,8 @@ export interface Api {
     closeWindow(): Promise<void>;
     /** User's home directory, used to tilde-collapse paths for display. */
     homeDir(): Promise<string>;
+    /** Current app version from `package.json` — shown in Settings. */
+    version(): Promise<string>;
     /** Open a URL in the user's default browser. Only http(s) URLs are
      *  honored; anything else (file://, javascript:, custom schemes) is
      *  silently ignored. */
