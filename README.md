@@ -9,6 +9,8 @@
 
 A minimal desktop client for running multiple Claude coding sessions in parallel — each one pinned to a working folder on disk and a chosen model. Built on Electron with React and the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk); auth is reused from your local Claude Code install, so there's no API-key dance.
 
+> **Not affiliated with Anthropic.** This is a hobby project — an independent third-party desktop wrapper that helps me (and hopefully you) run several Claude coding sessions side-by-side. "Claude", "Claude Code", and the Claude Agent SDK are products of [Anthropic](https://www.anthropic.com); this app simply talks to them.
+
 ## Download
 
 Pre-built installers land on the [GitHub Releases page](https://github.com/hamzaalomari/minimal-sessions/releases) for every tagged version. Look for:
