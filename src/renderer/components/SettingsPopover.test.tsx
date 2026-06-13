@@ -23,6 +23,7 @@ function installApiForUpdates(version: string, updater: UpdaterState): { check: 
       onRequestOpenSettings: vi.fn(() => () => {}),
       onRequestOpenSearch: vi.fn(() => () => {}),
       onRequestToggleTerminal: vi.fn(() => () => {}),
+      onRequestToggleShortcuts: vi.fn(() => () => {}),
       onRequestSelectTab: vi.fn(() => () => {}),
       onRequestNavigateBack: vi.fn(() => () => {}),
       onRequestNavigateForward: vi.fn(() => () => {}),

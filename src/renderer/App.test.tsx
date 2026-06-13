@@ -68,6 +68,7 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
         };
       }),
       onRequestToggleTerminal: vi.fn(() => () => {}),
+      onRequestToggleShortcuts: vi.fn(() => () => {}),
       onRequestNavigateBack: vi.fn(() => () => {}),
       onRequestNavigateForward: vi.fn(() => () => {}),
       onRequestNextTab: vi.fn(() => () => {}),
