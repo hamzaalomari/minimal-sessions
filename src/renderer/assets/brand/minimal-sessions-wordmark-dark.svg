@@ -9,5 +9,5 @@
   <text x="64" y="32" font-family="ui-sans-serif, system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, sans-serif" font-size="22" letter-spacing="-0.4">
     <tspan fill="#D98A63" font-weight="700">Minimal</tspan><tspan fill="#F3ECE2" font-weight="400"> Sessions</tspan>
   </text>
-  <text x="65" y="47" font-family="&#39;JetBrains Mono&#39;, ui-monospace, monospace" font-size="10.5" letter-spacing="0.4" fill="#8A7D6D">Claude coding sessions</text>
+  <text x="65" y="47" font-family="&#39;JetBrains Mono&#39;, ui-monospace, monospace" font-size="10.5" letter-spacing="0.4" fill="#8A7D6D">Coding sessions, minimal</text>
 </svg>

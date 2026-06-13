@@ -1,6 +1,6 @@
 # Minimal Sessions — Brand
 
-The logo is **"Stack"**: three overlapping rounded panels stepping toward the front, with a spark on the front panel — a stack of Claude sessions you're viewing.
+The logo is **"Stack"**: three overlapping rounded panels stepping toward the front, with a spark on the front panel — a stack of sessions you're viewing.
 
 ## Files
 
@@ -38,7 +38,7 @@ Accent is also offered as a user tweak in the app (blue `#2F6DD0`, green `#1F8A5
 
 ## Typography
 - **Wordmark**: system sans (`ui-sans-serif, system-ui, …`). "Minimal" in **bold** terracotta, "Sessions" in regular ink, tight tracking (-0.4).
-- **Tagline**: JetBrains Mono, "Claude coding sessions".
+- **Tagline**: JetBrains Mono, "Coding sessions, minimal".
 
 ## Don'ts
 - Don't recolor the spark to anything but the accent (color tile) or white (light surfaces).
