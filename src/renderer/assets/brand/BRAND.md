@@ -45,3 +45,14 @@ Accent is also offered as a user tweak in the app (blue `#2F6DD0`, green `#1F8A5
 - Don't add gradients or drop shadows to the mark.
 - Don't reorder or re-space the panels.
 - Don't stretch — scale uniformly.
+
+## macOS app icon
+`minimal-sessions-macos.svg` follows Apple's icon grid: the rounded body is **824×824 centered on a 1024×1024 canvas**, leaving ~100px of **transparent margin** on every side (corner radius 185.4). That transparent inset is required — it's what produces the consistent gap macOS draws around icons in the Dock and ⌘-Tab. A full-bleed square (no margin) looks oversized next to native apps.
+
+`MinimalSessions.iconset/` contains the 10 PNGs at Apple's exact required names/sizes (16–512 plus `@2x`). To compile a `.icns` on macOS:
+
+```sh
+iconutil -c icns MinimalSessions.iconset -o MinimalSessions.icns
+```
+
+For Electron/Tauri, point your bundler's `icon` field at `MinimalSessions.icns` (macOS), the 512 or 1024 PNG (Linux), and a generated `.ico` (Windows).
