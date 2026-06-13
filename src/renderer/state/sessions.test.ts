@@ -395,17 +395,17 @@ describe('sessions store', () => {
     });
 
     it('normalises a string into a one-step array', () => {
-      useSessions.getState().setPendingTerminalCommand('sess-1', 'claude\n');
+      useSessions.getState().setPendingTerminalCommand('sess-1', 'claude\r');
       const steps = useSessions
         .getState()
         .consumePendingTerminalCommand('sess-1');
-      expect(steps).toEqual([{ text: 'claude\n' }]);
+      expect(steps).toEqual([{ text: 'claude\r' }]);
     });
 
     it('stores an explicit step array verbatim — the Sign-in two-step sequence', () => {
       const queue = [
-        { text: 'claude\n', delayMs: 250 },
-        { text: '/login\n', delayMs: 2000 },
+        { text: 'claude\r', delayMs: 250 },
+        { text: '/login\r', delayMs: 2000 },
       ];
       useSessions.getState().setPendingTerminalCommand('sess-2', queue);
       expect(
@@ -414,7 +414,7 @@ describe('sessions store', () => {
     });
 
     it('clears the slot after consume', () => {
-      useSessions.getState().setPendingTerminalCommand('sess-3', 'foo\n');
+      useSessions.getState().setPendingTerminalCommand('sess-3', 'foo\r');
       useSessions.getState().consumePendingTerminalCommand('sess-3');
       expect(
         useSessions.getState().consumePendingTerminalCommand('sess-3'),
