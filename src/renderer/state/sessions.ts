@@ -13,6 +13,18 @@ export interface CreateSessionInput {
 
 export type SidebarView = 'sessions' | 'history' | 'search' | 'analytics' | 'plugins';
 
+/** One write into a session's PTY, plus the wait before it. Used for flows
+ *  that need to start a TUI and then send a slash command into it — the
+ *  initial Sign-in-to-Claude path is the load-bearing case. */
+export interface PendingTerminalStep {
+  text: string;
+  /** Milliseconds to wait BEFORE writing this step. Defaults to 250ms (enough
+   *  time for the shell prompt to print before our characters arrive). For
+   *  steps that follow a `claude\n`, allow ~2000ms so claude has time to
+   *  finish booting the REPL and is ready to receive slash commands. */
+  delayMs?: number;
+}
+
 interface SessionsState {
   /** Loaded from SQLite via window.api on hydrate(). */
   sessions: Session[];
@@ -36,10 +48,14 @@ interface SessionsState {
   terminalOpenIds: SessionId[];
   /** Sessions with an in-flight assistant turn. Transient — never persisted. */
   streamingIds: SessionId[];
-  /** Shell command to write into a session's PTY the moment it's ready —
-   *  used by the "Sign in to Claude" flow to auto-run `claude login`. The
-   *  Terminal component consumes (and clears) this on PTY open. */
-  pendingTerminalCommands: Record<SessionId, string>;
+  /** Sequence of writes to send into a session's PTY once it's ready. Each
+   *  step is { text, delayMs } — delayMs is the wait BEFORE writing the step
+   *  (after PTY open for the first one, or after the previous step otherwise).
+   *
+   *  Used by the "Sign in to Claude" flow (start claude, wait, send `/login`)
+   *  and the Plugin marketplace install flow. The Terminal component consumes
+   *  (and clears) the queue on PTY open. */
+  pendingTerminalCommands: Record<SessionId, PendingTerminalStep[]>;
   /** Plugin `installId`s the user has dispatched at least once. Used in the
    *  Plugin marketplace to badge already-tried plugins. We don't actually
    *  know if the install succeeded — the terminal owns that — but knowing
@@ -65,12 +81,17 @@ interface SessionsState {
   setSearchQuery(q: string): void;
   /** Show/hide the embedded terminal for `id`. Toggling off also kills the PTY. */
   toggleTerminalOpen(id: SessionId): void;
-  /** Schedule a one-shot command to be written into the session's PTY the
-   *  next time it's open and ready. */
-  setPendingTerminalCommand(id: SessionId, cmd: string): void;
-  /** Pop and return any scheduled command — Terminal component calls this
+  /** Schedule one or more writes to send into the session's PTY the next
+   *  time it's open and ready. Pass a single string for the common case;
+   *  pass an array of `PendingTerminalStep` for flows that need delays
+   *  between writes (e.g. start claude, wait, send `/login`). */
+  setPendingTerminalCommand(
+    id: SessionId,
+    cmd: string | PendingTerminalStep[],
+  ): void;
+  /** Pop and return any scheduled steps — Terminal component calls this
    *  after the PTY signals it's ready. Returns undefined when empty. */
-  consumePendingTerminalCommand(id: SessionId): string | undefined;
+  consumePendingTerminalCommand(id: SessionId): PendingTerminalStep[] | undefined;
   /** Mark `installId` as one the user has dispatched. Adds to the persisted
    *  set — idempotent. */
   markInstallDispatched(installId: string): void;
@@ -282,20 +303,23 @@ export const useSessions = create<SessionsState>()(
           return { terminalOpenIds: [...s.terminalOpenIds, id] };
         }),
 
-      setPendingTerminalCommand: (id, cmd) =>
+      setPendingTerminalCommand: (id, cmd) => {
+        const steps: PendingTerminalStep[] =
+          typeof cmd === 'string' ? [{ text: cmd }] : cmd;
         set((s) => ({
-          pendingTerminalCommands: { ...s.pendingTerminalCommands, [id]: cmd },
-        })),
+          pendingTerminalCommands: { ...s.pendingTerminalCommands, [id]: steps },
+        }));
+      },
 
       consumePendingTerminalCommand: (id) => {
-        const cmd = get().pendingTerminalCommands[id];
-        if (!cmd) return undefined;
+        const steps = get().pendingTerminalCommands[id];
+        if (!steps || steps.length === 0) return undefined;
         set((s) => {
           const next = { ...s.pendingTerminalCommands };
           delete next[id];
           return { pendingTerminalCommands: next };
         });
-        return cmd;
+        return steps;
       },
 
       markInstallDispatched: (installId) =>

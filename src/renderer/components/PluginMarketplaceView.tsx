@@ -88,9 +88,18 @@ export function PluginMarketplaceView() {
       toggleTerminalOpen(targetId);
     } else {
       // Terminal already open — the consume hook only fires on PTY open, so
-      // pop our own command and write it directly.
+      // pop our own steps and replay them with their own delays.
       const pending = consumePendingTerminalCommand(targetId);
-      if (pending) void window.api.terminal.write(targetId, pending);
+      if (pending) {
+        let cumulative = 0;
+        for (const step of pending) {
+          cumulative += step.delayMs ?? 250;
+          const text = step.text;
+          setTimeout(() => {
+            void window.api.terminal.write(targetId!, text);
+          }, cumulative);
+        }
+      }
     }
     selectSession(targetId);
     markInstallDispatched(plugin.installId);
