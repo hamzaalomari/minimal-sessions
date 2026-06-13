@@ -2,7 +2,7 @@
 
 Six milestones. Each is independently mergeable and leaves the app in a working state.
 
-> **Status (2026-06-13):** M0 through M5 are merged on `master`. M6 is mostly merged — a small punch list remains (see below).
+> **Status (2026-06-13):** M0 through M5 are merged on `master`. M6 is mostly merged — only code signing + a clean-install smoke test remain.
 
 ## M0 — Project scaffolding ✅
 
@@ -141,17 +141,14 @@ Done. Highlights:
 - ✅ "Connect to Claude" UX (PR #18) — Settings + main placeholder gained a "Sign in to Claude" action that opens the embedded terminal pre-running `claude login`. Creates a one-off "Claude Setup" session if there's no host session available.
 - ✅ More built-in commands (PR #19) — added `pr-description`, `migration`, `bench`, `release-notes`. Currently 10 built-ins.
 - ✅ Skill discovery UI (PR #20) — Tweaks panel grew a "Loaded skills" section listing every SDK skill currently armed for the active session, with scope badges and descriptions. Backed by new `discoverSkills()` + `skills:list` IPC.
-- ✅ Plugin marketplace integration (PR #22) — new Plugins sidebar view with 5 curated entries (Superpowers, awesome-claude-code, Claude Command Suite, Frontend Design, awesome-claude-plugins). One-click install runs `claude plugin install <id>` in the embedded terminal. Adding entries is a one-line change in `src/renderer/data/plugin-marketplace.ts`.
-
-Still open:
-
-- **Auto-update channel.** No update mechanism shipped. Once the release workflow is signing, electron-updater + the existing release flow is the obvious next step.
+- ✅ Plugin marketplace integration (PR #22, polished in PR #25) — new Plugins sidebar view with 5 curated entries (Superpowers, awesome-claude-code, Claude Command Suite, Frontend Design, awesome-claude-plugins). One-click install runs `claude plugin install <id>` in the embedded terminal. PR #25 added text search, tag-chip filters, and a persisted "Dispatched" badge on cards the user has already kicked off the install flow for. Adding entries is a one-line change in `src/renderer/data/plugin-marketplace.ts`.
+- ✅ Auto-update channel (PR #24) — `electron-updater` wired against GitHub Releases; `src/main/updater.ts` polls 10s after launch and every 6h. `UpdateBanner.tsx` floats above the status bar with a Restart CTA when an update is staged. `MS_DISABLE_AUTO_UPDATE=1` opts out, dev builds skip entirely. The release workflow now uploads `latest-mac.yml` / `latest.yml` metadata alongside installers.
 
 **Acceptance**
 
 - [ ] `npm run package` produces signed installers for macOS (Developer ID) and Windows (Authenticode).
 - [x] All keyboard shortcuts behave as specified.
-- [x] The only external network call is what the Agent SDK / Claude binary makes (or `app.openExternal()` for explicit user-clicked links) — the app itself never reaches out.
+- [x] The only external network calls are: the Agent SDK / Claude binary, the GitHub release-metadata poll for auto-update (only in packaged builds, opt-out via `MS_DISABLE_AUTO_UPDATE=1`), and `shell.openExternal` for http(s) URLs the user clicks.
 - [x] No console warnings in dev or production builds.
 - [x] First-launch UX: a developer who has *not* run `claude login` has a clear path forward via Settings → Sign in to Claude (PR #18).
 

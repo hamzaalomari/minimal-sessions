@@ -142,6 +142,8 @@ The status bar carries two controls: the **token meter** (left of the theme togg
 - **FR-P2.** Clicking **Install** shows a confirm modal with the exact `claude plugin install <id>` command. Confirming opens the embedded terminal sub-tab of the active session (creating a one-off "Plugin Install" session at `~` if there's none) and writes the command. The Claude CLI on the user's `PATH` handles the actual install.
 - **FR-P3.** A **"Sign in to Claude"** action in Settings (and in the main placeholder when no session is selected) opens the embedded terminal with `claude login` queued. Creates a one-off "Claude Setup" session at `~` if there's no active session. This is the documented first-launch path for users whose SDK can't find existing credentials.
 - **FR-P4.** Both flows use a `pendingTerminalCommand` field on the sessions store. The Terminal component pops it on PTY open and writes after 250ms so the user's shell prompt prints before our characters arrive.
+- **FR-P5.** The Plugins view supports a text search (matches name / author / description / tags / installId) and tag-chip filters derived from the union of every plugin's tags. The sidebar count switches to `N/M` when filtered.
+- **FR-P6.** The sessions store tracks a persisted `dispatchedInstalls: string[]` of plugin ids the user has confirmed at least once. Cards for those plugins show a "Dispatched" badge and flip their CTA to "Re-install". The state survives restarts via `partialize`.
 
 ### 4.13 External links (M6)
 
@@ -156,6 +158,14 @@ The status bar carries two controls: the **token meter** (left of the theme togg
 - **FR-A1.** The activity bar's analytics icon opens a sidebar view showing total tokens and total estimated cost across **all** sessions (active + deleted).
 - **FR-A2.** A time-range selector (24h / 7d / 30d / all) filters the totals. Per-turn `usage` is persisted in `turns.tokens_input / output / cache_w / cache_r` columns added during M6. Legacy turns without per-turn usage attribute to `session.lastActiveAt` so non-`all` ranges aren't deceptively empty for older sessions.
 - **FR-A3.** A per-model breakdown lists each model's share of input / output / cache-write / cache-read tokens and the cost computed via `pricing.ts`.
+
+### 4.16 Auto-update channel (M6)
+
+- **FR-AU1.** Packaged builds run an auto-update check 10 seconds after launch and every 6 hours while open, using `electron-updater` against the project's GitHub Releases (configured via the `publish` block in `package.json`).
+- **FR-AU2.** The main process exposes the updater state (`idle | checking | available | not-available | downloading | ready | error`) over IPC as `window.api.updater.{getState, check, install, onState}`. The renderer never imports `electron-updater` itself.
+- **FR-AU3.** `UpdateBanner.tsx` floats above the status bar and is silent on idle / not-available / checking. It only renders for `available` / `downloading` / `ready` / `error`. The Restart CTA calls `quitAndInstall()`; Retry re-triggers a check.
+- **FR-AU4.** `MS_DISABLE_AUTO_UPDATE=1` at launch turns the channel off entirely. Dev builds skip the check unconditionally.
+- **FR-AU5.** The release workflow uploads `latest-mac.yml` / `latest.yml` metadata files alongside the installers so `electron-updater` can read them. Until installers are signed, downloaded updates still install via Gatekeeper / SmartScreen prompts.
 
 ## 5. Non-functional requirements
 
