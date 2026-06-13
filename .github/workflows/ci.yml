@@ -17,8 +17,14 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # --ignore-scripts skips dependency install hooks. node-pty@1.1.0 has no
+      # linux-x64 prebuild and falls back to a source compile via node-gyp,
+      # which has been intermittently ETIMEDOUTing while it fetches the Node
+      # headers from nodejs.org. Lint + typecheck don't need any compiled
+      # native binaries — tsc just reads the .d.ts files extracted from the
+      # tarball — so we skip the hooks entirely here.
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Typecheck
         run: npm run typecheck
@@ -37,8 +43,13 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # Same reasoning as the lint job — skip the flaky node-pty source
+      # compile. better-sqlite3 still needs a working binary for the DB tests;
+      # the `pretest` hook (scripts/rebuild-native.mjs --runtime=node) handles
+      # that by running `npm rebuild better-sqlite3` against the Node ABI,
+      # which downloads the prebuilt binary rather than compiling from source.
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Run unit tests
         run: npm test
