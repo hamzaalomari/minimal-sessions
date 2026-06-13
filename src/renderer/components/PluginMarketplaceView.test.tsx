@@ -21,6 +21,7 @@ function installMinimalApi(): void {
       onRequestOpenSettings: vi.fn(() => () => {}),
       onRequestOpenSearch: vi.fn(() => () => {}),
       onRequestToggleTerminal: vi.fn(() => () => {}),
+      onRequestToggleShortcuts: vi.fn(() => () => {}),
       onRequestSelectTab: vi.fn(() => () => {}),
       onRequestNavigateBack: vi.fn(() => () => {}),
       onRequestNavigateForward: vi.fn(() => () => {}),

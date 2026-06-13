@@ -41,6 +41,12 @@ const api: Api = {
       return () =>
         ipcRenderer.removeListener('app:request-toggle-terminal', listener);
     },
+    onRequestToggleShortcuts: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-toggle-shortcuts', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-toggle-shortcuts', listener);
+    },
     onRequestSelectTab: (handler) => {
       const listener = (_e: unknown, n: number): void => handler(n);
       ipcRenderer.on('app:request-select-tab', listener);

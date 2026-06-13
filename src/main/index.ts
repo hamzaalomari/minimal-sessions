@@ -155,6 +155,11 @@ function buildMenu(): Menu {
     accelerator: 'CmdOrCtrl+J',
     click: sendToFocused('app:request-toggle-terminal'),
   };
+  const shortcutsItem: MenuItemConstructorOptions = {
+    label: 'Keyboard Shortcuts',
+    accelerator: 'CmdOrCtrl+/',
+    click: sendToFocused('app:request-toggle-shortcuts'),
+  };
   // Browser-style navigation through session/sidebar history. Mouse buttons
   // 4/5 also dispatch these via the app-command handler in createWindow().
   const navigateBackItem: MenuItemConstructorOptions = {
@@ -285,6 +290,8 @@ function buildMenu(): Menu {
         { type: 'separator' },
         navigateBackItem,
         navigateForwardItem,
+        { type: 'separator' },
+        shortcutsItem,
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },

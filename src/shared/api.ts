@@ -136,6 +136,8 @@ export interface Api {
     onRequestOpenSearch(handler: () => void): Unsubscribe;
     /** Cmd/Ctrl+J — toggle the embedded terminal panel for the active session. */
     onRequestToggleTerminal(handler: () => void): Unsubscribe;
+    /** Cmd/Ctrl+/ — show/hide the keyboard-shortcuts cheatsheet overlay. */
+    onRequestToggleShortcuts(handler: () => void): Unsubscribe;
     /** Cmd/Ctrl+1..9 — focus the Nth open tab. Handler is a no-op when out of range. */
     onRequestSelectTab(handler: (n: number) => void): Unsubscribe;
     /** Mouse-button-4 / Cmd/Ctrl+Alt+Left — pop the previous nav state. */

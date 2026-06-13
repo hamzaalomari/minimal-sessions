@@ -13,6 +13,7 @@ import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { TitleBar } from './components/TitleBar';
 import { TokenMeter } from './components/TokenMeter';
+import { ShortcutsOverlay } from './components/ShortcutsOverlay';
 import { TweaksPanel } from './components/TweaksPanel';
 import { UpdateBanner } from './components/UpdateBanner';
 import { formatShortcut, setPlatform } from './lib/platform';
@@ -92,6 +93,7 @@ export function App() {
   } | null>(null);
   const [editingInstructionsFor, setEditingInstructionsFor] = useState<string | null>(null);
   const [showTweaks, setShowTweaks] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     void window.api.app.platform().then((p) => {
@@ -206,6 +208,9 @@ export function App() {
     };
     const offNextTab = window.api.app.onRequestNextTab(() => cycleTab(1));
     const offPrevTab = window.api.app.onRequestPrevTab(() => cycleTab(-1));
+    const offShortcuts = window.api.app.onRequestToggleShortcuts(() => {
+      setShowShortcuts((prev) => !prev);
+    });
     return () => {
       offClose();
       offNew();
@@ -216,6 +221,7 @@ export function App() {
       offTerminal();
       offNextTab();
       offPrevTab();
+      offShortcuts();
     };
   }, []);
 
@@ -454,6 +460,8 @@ export function App() {
       )}
 
       {showTweaks && <TweaksPanel onClose={() => setShowTweaks(false)} />}
+
+      {showShortcuts && <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
 
       {menu && (
         <ContextMenu
