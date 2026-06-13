@@ -9,26 +9,118 @@
 
 A minimal desktop client for running multiple Claude coding sessions in parallel — each one pinned to a working folder on disk and a chosen model. Built on Electron with React and the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk); auth is reused from your local Claude Code install, so there's no API-key dance.
 
+## Download
+
+Pre-built installers land on the [GitHub Releases page](https://github.com/hamzaalomari/minimal-sessions/releases) for every tagged version:
+
+- **macOS arm64** — `Minimal Sessions-<version>-arm64.dmg`
+- **macOS x64** — `Minimal Sessions-<version>-x64.dmg`
+- **Windows x64** — `Minimal Sessions Setup <version>.exe`
+
+The installers are **unsigned** while the project is in early access (code-signing certs are a planned follow-up). The OS shows a one-time warning the first time you open the app:
+
+- **macOS** — Gatekeeper says "Apple could not verify…". Right-click the app in `Applications` → **Open** → confirm. After that it launches normally. (Equivalent path: System Settings → Privacy & Security → scroll down → **Open Anyway**.)
+- **Windows** — SmartScreen says "Windows protected your PC". Click **More info** → **Run anyway**.
+
+You only have to do this once per machine.
+
+## First launch — sign in to Claude
+
+The app uses your local `claude` CLI's auth instead of asking for an API key. If you've already run `claude /login` somewhere else on this machine, you're good — open a session and start chatting.
+
+If you haven't, the app has a built-in path:
+
+1. Click the gear icon (bottom-left activity bar) → **Sign in to Claude**, *or* on the empty state click **Sign in to Claude** under "First time setting up?".
+2. The embedded terminal opens, starts the `claude` REPL, and sends `/login` automatically.
+3. Authorise in your browser when it pops open. You'll only need to do this once.
+
+If `claude` isn't on your `PATH`, install it from <https://claude.com/claude-code> first.
+
 ## Features
 
-- **Multi-session tabs.** Each tab is one Claude conversation, scoped to a working directory and a model. Branch is read from `.git/HEAD` and shown as a chip.
-- **Inline tool windows.** Read / edit / write / search / bash tool calls render as expandable cards in the transcript. Consecutive same-kind calls coalesce into one window with a paths list; Bash stays one-per-window with terminal styling.
-- **Stop in flight.** A red stop button in the composer cancels the streaming turn instantly (or press `Esc`). The partial response is preserved and marked "Stopped.".
-- **Token + cost meter.** Per-session running tally of input / output / cache-create / cache-read tokens with `$/1M` pricing per model. Click to see the breakdown.
-- **Search.** `⌘F` opens a VSCode-style search view that filters open and historical sessions by name or path. Open matches first, history below.
-- **History view.** Soft-delete a session, restore it from history, or purge it permanently. Nothing is lost by accident.
-- **Tweaks panel.** Theme (light / dark), reading font (sans / serif / mono — JetBrains Mono), and a global system prompt that's prepended to every session's own instructions. Per-session instructions live on the session.
-- **Keyboard shortcuts.** `⌘N` new session · `⌘W` close tab · `⌘\` toggle sidebar · `⌘1`–`⌘9` jump to tab N · `⌘,` settings · `⌘F` search.
-- **Local-first persistence.** All sessions, turns, and usage are persisted to SQLite via the Electron main process. The only network call is the SDK's own to Claude.
+### Sessions
 
-## Prerequisites
+- **Multi-session tabs.** Each tab is one Claude conversation, scoped to a working directory and a model. Tabs are drag-reorderable; `⌘1`–`⌘9` jumps to tab N.
+- **Branch / worktree from the new-session panel.** Three-way segmented control: use the current branch, create a new branch (`git switch -c`), or carve a sibling worktree (`git worktree add`). Errors bubble up verbatim.
+- **System prompts.** A global system prompt in Settings is concatenated with each session's own instructions and forwarded every turn. SessionHead shows a `system prompt` chip when one is set.
+- **Soft delete + history.** Closed sessions move to **History** where you can restore or permanently delete them. The history view has a destructive "Delete all" button when there's history to clear.
+- **Search.** `⌘F` opens a VSCode-style search that filters open and historical sessions by name or path.
+
+### Conversations
+
+- **Token-by-token streaming.** Responses stream in as the SDK emits `content_block_delta` events — not just on turn-stop.
+- **Inline tool windows.** Read / edit / write / search / bash tool calls render as expandable cards in the transcript. Consecutive same-kind calls coalesce into one window with a paths list; Bash stays one-per-window with terminal styling.
+- **Stop in flight.** A red stop button (or `Esc`) cancels the streaming turn instantly. The partial response is preserved and marked "Stopped."
+- **Pasted-text collapsing.** Paste ≥15 lines or ≥1500 chars and the composer shows `[Pasted #N: K lines]`. The full text is sent at submit time.
+- **Click-to-arm typing.** Click anywhere in the session pane and the next printable key lands in the composer — no visible focus jump, no cursor-mode wrangling.
+- **Sticky-bottom autoscroll.** If you're at the bottom, streaming pins you there. If you've scrolled up to read, streaming doesn't yank you back.
+
+### Embedded terminal
+
+- **`⌘J` toggles a real PTY** rooted in the session's working directory. Backed by `node-pty` + xterm.js. Drag-resizable; persists its height across launches. The transcript instance is preserved across the chat/terminal toggle so scroll position survives.
+
+### Slash commands
+
+The composer detects `/`-prefixed input and shows an autocomplete popover with arrow-key navigation. Commands come from four sources, in priority order (first match wins):
+
+1. **Project** — `<cwd>/.claude/commands/*.md`
+2. **User** — `~/.claude/commands/*.md`
+3. **Plugin** — bundled with installed SDK plugins, namespaced `pluginName:cmd`
+4. **Built-in** — ships with the app: `security-review`, `explain`, `test`, `refactor`, `diff-review`, `commit`, `pr-description`, `migration`, `bench`, `release-notes`
+
+### Plugin marketplace
+
+- A curated **Plugins** sidebar view with one-click install for popular Claude Code plugins (Superpowers, awesome-claude-code, Claude Command Suite, Frontend Design, awesome-claude-plugins).
+- Install runs `claude plugin install <id>` in the embedded terminal — needs the Claude CLI on your `PATH`.
+- Text search + tag filters; cards you've already kicked off show a "Dispatched" badge so you can tell what you've tried.
+
+### Skill discovery
+
+Tweaks panel has a **Loaded skills** section listing every SDK skill currently armed for the active session, with scope badges (project / user / plugin). Skills are invoked autonomously by the SDK based on the conversation — this view exists so you know what's loaded.
+
+### Analytics
+
+A sidebar view showing total tokens + estimated cost across all sessions (active + deleted) with a 24h / 7d / 30d / all time-range selector and a per-model breakdown. Pricing comes from a table keyed by model family in `src/shared/pricing.ts`.
+
+### Theme system
+
+- Two-layer `data-theme` × `data-preset` palette: light / dark crossed with warm / paper / mist / classic / midnight / ocean / slate.
+- Accent presets, density (cozy / compact), and a chat-width control.
+- Composer style toggle (panel vs. terminal-prompt).
+- Code-theme picker with 10 stock highlight.js themes.
+
+### Auto-update
+
+Packaged builds check GitHub Releases 10 seconds after launch and every 6 hours. A small banner above the status bar prompts a restart when an update is ready. Set `MS_DISABLE_AUTO_UPDATE=1` at launch to opt out. Settings has a manual **Check for updates** button and shows the current version.
+
+## Keyboard shortcuts
+
+`⌘/` (Ctrl+/ on Windows + Linux) opens the in-app cheatsheet — that's the source of truth. The greatest hits:
+
+| Action | macOS | Windows / Linux |
+|---|---|---|
+| New session | `⌘N` | `Ctrl+N` |
+| Close tab | `⌘W` | `Ctrl+W` |
+| Jump to tab N | `⌘1`–`⌘9` | `Ctrl+1`–`Ctrl+9` |
+| Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` (also `⌘~`, `⌘⇧]`, `⌘⇧[`) | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
+| Toggle sidebar | `⌘B` | `Ctrl+B` |
+| Toggle embedded terminal | `⌘J` | `Ctrl+J` |
+| Settings | `⌘,` | `Ctrl+,` |
+| Find session | `⌘F` | `Ctrl+F` |
+| Navigate back / forward | `⌘⌥←` / `⌘⌥→` | `Ctrl+Alt+Left/Right` (or mouse buttons 4/5) |
+| Show shortcuts | `⌘/` | `Ctrl+/` |
+| Send / stop turn | `Enter` / `Esc` | `Enter` / `Esc` |
+
+## Build from source
+
+### Prerequisites
 
 - **Node.js 20+** (npm ships with Node). Check with `node -v`.
-- **[Claude Code](https://claude.com/claude-code) installed and authenticated.** The Agent SDK reuses your local `claude` CLI session — there's no API key configured in the app. Run `claude /login` once if you haven't already.
-- **macOS, Windows, or Linux** with a desktop environment. Native module rebuild (`better-sqlite3`) needs a working C++ toolchain on first install — Xcode Command Line Tools on macOS, Build Tools for Visual Studio on Windows, `build-essential` on Linux.
+- **[Claude Code](https://claude.com/claude-code) installed and authenticated.** The Agent SDK reuses your local `claude` CLI session — there's no API key configured in the app.
+- **macOS, Windows, or Linux** with a desktop environment. The native modules (`better-sqlite3`, `node-pty`) need a C++ toolchain on first install — Xcode Command Line Tools on macOS, Build Tools for Visual Studio on Windows, `build-essential` on Linux.
 - **Git** for cloning.
 
-## Install
+### Install + run
 
 ```bash
 git clone https://github.com/hamzaalomari/minimal-sessions.git
@@ -37,9 +129,9 @@ npm install
 npm run dev
 ```
 
-The dev script launches Electron with hot reload. First-run rebuilds `better-sqlite3` for the Electron runtime — that's one-time per Electron version.
+The dev script launches Electron with hot reload. First-run rebuilds `better-sqlite3` for the Electron runtime — that's one-time per Electron version. There's an ABI flip-flop fix wired into `predev` / `prebuild` / `pretest` hooks so `npm test` (Node ABI) and `npm run dev` (Electron ABI) don't fight each other.
 
-## Build an installer
+### Build an installer
 
 ```bash
 npm run package        # host platform
@@ -47,18 +139,30 @@ npm run package:mac    # .dmg + .zip (arm64 or x64, matches the host arch)
 npm run package:win    # NSIS .exe (run on a Windows host or via CI)
 ```
 
-Output lands in `dist/`. Builds are **unsigned by default** — production releases need an Apple Developer ID (mac) and an Authenticode cert (Windows). App icons are TODO; the default Electron icon ships for now.
+Output lands in `dist/`. The macOS build uses the bundled `resources/icon.icns` (Apple icon-grid); Windows + Linux use `resources/icon.png`.
 
-## Development
+### Development scripts
 
 ```bash
-npm test          # vitest, ~350 tests
+npm test          # vitest — 399 tests
 npm run typecheck # tsc --noEmit across main / web / test configs
 npm run lint      # eslint
 npm run build     # production bundle into out/ (no installer)
 ```
 
-Spec, design, and milestone tracking live in [`specs/`](./specs).
+## Project layout
+
+```
+src/
+├── main/       # Electron main process — SDK calls, SQLite, PTYs, IPC
+├── preload/    # contextBridge surface exposed as window.api
+├── renderer/   # React UI (Vite); components/, state/ (zustand), styles/
+└── shared/     # types + utilities used across processes
+resources/      # bundled assets — icon.png, icon.icns, commands/
+specs/          # product spec, design notes, milestone plan
+```
+
+Architecture notes, design decisions, and the milestone tracker live in [`specs/`](./specs). Contribution conventions are in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
