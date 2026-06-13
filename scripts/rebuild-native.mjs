@@ -15,13 +15,18 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { platform } from 'node:process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
 const moduleDir = resolve(projectRoot, 'node_modules/better-sqlite3');
+// On Windows the .bin shim is `prebuild-install.cmd`; node's
+// execFileSync won't auto-add the extension, so it ENOENTs otherwise.
 const prebuildInstall = resolve(
   projectRoot,
-  'node_modules/.bin/prebuild-install',
+  platform === 'win32'
+    ? 'node_modules/.bin/prebuild-install.cmd'
+    : 'node_modules/.bin/prebuild-install',
 );
 
 // node-pty's npm post-install only chmods files in `build/Release`, but the
@@ -68,6 +73,13 @@ if (!existsSync(moduleDir)) {
 const forgeMeta = resolve(moduleDir, 'build/Release/.forge-meta');
 if (existsSync(forgeMeta)) rmSync(forgeMeta);
 
+// On Windows, the `.bin` shims (`prebuild-install`, `npm`) are .cmd files
+// that execFileSync cannot launch directly — they need to go through
+// cmd.exe. Pass `shell: true` to route the call through the shell so the
+// shim is interpreted. Safe on Unix too — there the binary is invoked
+// the normal way; the only cost is one extra shell process.
+const isWin = platform === 'win32';
+
 if (runtimeArg === 'electron') {
   // For Electron we know exactly which Electron version we ship against, and
   // better-sqlite3 publishes a prebuilt for every Electron release. Use
@@ -84,7 +96,7 @@ if (runtimeArg === 'electron') {
   execFileSync(
     prebuildInstall,
     ['--runtime', 'electron', '--target', target, '--force'],
-    { cwd: moduleDir, stdio: 'inherit' },
+    { cwd: moduleDir, stdio: 'inherit', shell: isWin },
   );
 } else {
   // For Node we let better-sqlite3's own install script do the work. It tries
@@ -95,5 +107,6 @@ if (runtimeArg === 'electron') {
   execFileSync('npm', ['rebuild', 'better-sqlite3', '--silent'], {
     cwd: projectRoot,
     stdio: 'inherit',
+    shell: isWin,
   });
 }

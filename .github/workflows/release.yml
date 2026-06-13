@@ -1,9 +1,16 @@
 name: Release
 
 # Tag a commit like `v0.1.0` and push → this workflow builds installers
-# on macOS (arm64 + x64) and Windows (x64) and uploads them to a draft
-# GitHub Release. We don't auto-publish; you review the artifacts and
-# flip the draft to released by hand.
+# on macOS (arm64) and Windows (x64) and uploads them to a draft GitHub
+# Release. We don't auto-publish; you review the artifacts and flip the
+# draft to released by hand.
+#
+# Why arm64-only for macOS: GitHub's `macos-13` x64 runner pool is being
+# phased out (queue-starved on 2026-06-13), and cross-compiling to x64
+# from `macos-14` arm64 needs explicit prebuild-arch handling that we
+# haven't wired. Apple Silicon covers every Mac sold since 2020, so we
+# ship arm64 for now; Intel Mac users can self-build via `npm run
+# package:mac` until we re-enable an x64 runner.
 #
 # Code signing isn't wired yet — see specs/plan.md M5 punch list. Until
 # certs are in place, the produced installers are unsigned and trigger
@@ -31,19 +38,10 @@ jobs:
             runner: macos-14
             arch: arm64
             package: package:mac
-            # electron-updater consumes the `latest-mac.yml` / `latest.yml`
-            # metadata files alongside the installer — upload them too.
-            artifact-glob: 'dist/*.{dmg,zip,yml}'
-          - os-label: macOS
-            runner: macos-13
-            arch: x64
-            package: package:mac
-            artifact-glob: 'dist/*.{dmg,zip,yml}'
           - os-label: Windows
             runner: windows-2022
             arch: x64
             package: package:win
-            artifact-glob: 'dist/*.{exe,yml}'
 
     steps:
       - uses: actions/checkout@v4
@@ -58,18 +56,32 @@ jobs:
 
       - name: Build + package
         env:
-          # Skip electron-builder's auto-publish — we'll attach to the
-          # draft release ourselves below.
+          # electron-builder defaults to auto-publishing on CI when a
+          # `github` provider is set in package.json. The release job
+          # below owns the upload — tell electron-builder to stay
+          # local-only with `--publish=never` (forwarded via env so the
+          # package.json scripts don't need to change).
+          EP_PUBLISH: 'never'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS notarization stays off until certs are wired.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run ${{ matrix.package }}
+        run: npm run ${{ matrix.package }} -- --publish=never
 
+      # upload-artifact@v4 doesn't expand `{dmg,zip,yml}` brace globs the
+      # way bash does; the literal pattern matches zero files. List each
+      # extension on its own line instead. `dist/*` covers everything
+      # electron-builder writes (DMG/ZIP/EXE + the metadata YML files
+      # electron-updater consumes).
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: minimal-sessions-${{ matrix.os-label }}-${{ matrix.arch }}
-          path: ${{ matrix.artifact-glob }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
           if-no-files-found: error
           retention-days: 7
 
@@ -94,3 +106,4 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/*.exe
             artifacts/**/*.yml
+            artifacts/**/*.blockmap
