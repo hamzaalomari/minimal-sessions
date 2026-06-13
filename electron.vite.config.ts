@@ -10,9 +10,12 @@ export default defineConfig({
         entry: resolve(__dirname, 'src/main/index.ts'),
       },
       rollupOptions: {
-        // Native module — bundling inlines the JS but the .node binary lives
+        // Native modules — bundling inlines the JS but the .node binary lives
         // outside the bundle. Externalize so Node resolves it at runtime.
-        external: ['better-sqlite3', 'node-pty'],
+        // electron-updater pulls in builder-util-runtime + fs-extra which
+        // do dynamic requires; externalize the whole module so it loads from
+        // node_modules at runtime instead of going through Rollup.
+        external: ['better-sqlite3', 'node-pty', 'electron-updater'],
       },
     },
     resolve: {

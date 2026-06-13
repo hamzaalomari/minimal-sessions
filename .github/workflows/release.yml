@@ -31,17 +31,19 @@ jobs:
             runner: macos-14
             arch: arm64
             package: package:mac
-            artifact-glob: 'dist/*.{dmg,zip}'
+            # electron-updater consumes the `latest-mac.yml` / `latest.yml`
+            # metadata files alongside the installer — upload them too.
+            artifact-glob: 'dist/*.{dmg,zip,yml}'
           - os-label: macOS
             runner: macos-13
             arch: x64
             package: package:mac
-            artifact-glob: 'dist/*.{dmg,zip}'
+            artifact-glob: 'dist/*.{dmg,zip,yml}'
           - os-label: Windows
             runner: windows-2022
             arch: x64
             package: package:win
-            artifact-glob: 'dist/*.exe'
+            artifact-glob: 'dist/*.{exe,yml}'
 
     steps:
       - uses: actions/checkout@v4
@@ -91,3 +93,4 @@ jobs:
             artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
+            artifacts/**/*.yml

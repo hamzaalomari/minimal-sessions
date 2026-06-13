@@ -118,6 +118,12 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
       onData: vi.fn(() => () => {}),
       onExit: vi.fn(() => () => {}),
     },
+    updater: {
+      getState: vi.fn().mockResolvedValue({ status: 'idle', enabled: false }),
+      check: vi.fn().mockResolvedValue(undefined),
+      install: vi.fn().mockResolvedValue(undefined),
+      onState: vi.fn(() => () => {}),
+    },
   };
   (window as unknown as { api: Api }).api = api;
   return Object.assign(api, {

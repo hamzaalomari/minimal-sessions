@@ -14,6 +14,7 @@ import { TabBar } from './components/TabBar';
 import { TitleBar } from './components/TitleBar';
 import { TokenMeter } from './components/TokenMeter';
 import { TweaksPanel } from './components/TweaksPanel';
+import { UpdateBanner } from './components/UpdateBanner';
 import { formatShortcut, setPlatform } from './lib/platform';
 import { applyNavEntry, initNavTracking, useNav } from './state/nav';
 import { useActiveSession, useSessions } from './state/sessions';
@@ -394,6 +395,8 @@ export function App() {
           </div>
         )}
       </main>
+
+      <UpdateBanner />
 
       <footer className="statusbar">
         <div className="st-spacer" />

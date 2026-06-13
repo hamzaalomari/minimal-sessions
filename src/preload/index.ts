@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { Api, ChatEvent } from '@shared/api';
+import type { Api, ChatEvent, UpdaterState } from '@shared/api';
 import type { SessionId } from '@shared/types';
 
 const api: Api = {
@@ -126,6 +126,16 @@ const api: Api = {
         addTokens ?? 0,
         addUsage ?? { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
       ),
+  },
+  updater: {
+    getState: () => ipcRenderer.invoke('updater:get-state'),
+    check: () => ipcRenderer.invoke('updater:check'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    onState: (handler) => {
+      const listener = (_e: unknown, state: UpdaterState): void => handler(state);
+      ipcRenderer.on('updater:state', listener);
+      return () => ipcRenderer.removeListener('updater:state', listener);
+    },
   },
   terminal: {
     open: (sessionId, cwd, cols, rows) =>
