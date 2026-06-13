@@ -257,9 +257,13 @@ export function App() {
     // is parsed as "start claude with `login` as the initial prompt". The
     // correct flow is to start the REPL first, wait for it to be ready, then
     // send `/login` as a slash command inside the running TUI.
+    //
+    // Note: each step ends with `\r` (carriage return), not `\n`. Terminals
+    // in raw mode (like the claude TUI) only treat CR as Enter — LF is just
+    // a line-feed character that gets typed but never submits.
     const steps = [
-      { text: 'claude\n', delayMs: 250 },
-      { text: '/login\n', delayMs: 2000 },
+      { text: 'claude\r', delayMs: 250 },
+      { text: '/login\r', delayMs: 2000 },
     ];
     state.setPendingTerminalCommand(targetId, steps);
     if (!state.terminalOpenIds.includes(targetId)) {

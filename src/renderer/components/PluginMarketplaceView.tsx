@@ -82,7 +82,9 @@ export function PluginMarketplaceView() {
       });
       targetId = session.id;
     }
-    const cmd = `claude plugin install ${plugin.installId}\n`;
+    // `\r` (carriage return) is what terminals treat as Enter — `\n` is just
+    // a line-feed character that doesn't submit in TUIs running in raw mode.
+    const cmd = `claude plugin install ${plugin.installId}\r`;
     setPendingTerminalCommand(targetId, cmd);
     if (!terminalOpenIds.includes(targetId)) {
       toggleTerminalOpen(targetId);
