@@ -190,7 +190,7 @@
 
 .md-table {
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--read-size);
   border: 1px solid var(--border-soft);
   border-radius: 9px;
   overflow: hidden;
@@ -209,7 +209,6 @@
 .md-table th {
   background: color-mix(in oklch, var(--text) 3%, transparent);
   font-weight: 600;
-  font-size: 12px;
   letter-spacing: 0.01em;
 }
 
