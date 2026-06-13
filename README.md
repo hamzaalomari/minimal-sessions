@@ -11,11 +11,12 @@ A minimal desktop client for running multiple Claude coding sessions in parallel
 
 ## Download
 
-Pre-built installers land on the [GitHub Releases page](https://github.com/hamzaalomari/minimal-sessions/releases) for every tagged version:
+Pre-built installers land on the [GitHub Releases page](https://github.com/hamzaalomari/minimal-sessions/releases) for every tagged version. Look for:
 
-- **macOS arm64** — `Minimal Sessions-<version>-arm64.dmg`
-- **macOS x64** — `Minimal Sessions-<version>-x64.dmg`
-- **Windows x64** — `Minimal Sessions Setup <version>.exe`
+- **macOS (Apple Silicon)** — the `…-arm64.dmg` file.
+- **Windows** — the `Minimal Sessions Setup …exe` file.
+
+**Intel Macs:** there is no x64 installer in v0.1.0 — GitHub's free macOS x64 runners are being deprecated and we don't cross-compile yet. Apple Silicon covers every Mac sold since 2020; if you're on Intel, build from source ([Build from source](#build-from-source) below). Same goes for Linux — there's no Linux build today; `npm run dev` or `npm run package` from source works.
 
 The installers are **unsigned** while the project is in early access (code-signing certs are a planned follow-up). The OS shows a one-time warning the first time you open the app:
 
@@ -30,7 +31,7 @@ The app uses your local `claude` CLI's auth instead of asking for an API key. If
 
 If you haven't, the app has a built-in path:
 
-1. Click the gear icon (bottom-left activity bar) → **Sign in to Claude**, *or* on the empty state click **Sign in to Claude** under "First time setting up?".
+1. Click the gear icon at the bottom of the left activity bar → **Sign in to Claude**, *or* on the "No session" placeholder click **Sign in to Claude** under "First time setting up?".
 2. The embedded terminal opens, starts the `claude` REPL, and sends `/login` automatically.
 3. Authorise in your browser when it pops open. You'll only need to do this once.
 
@@ -102,7 +103,7 @@ Packaged builds check GitHub Releases 10 seconds after launch and every 6 hours.
 | New session | `⌘N` | `Ctrl+N` |
 | Close tab | `⌘W` | `Ctrl+W` |
 | Jump to tab N | `⌘1`–`⌘9` | `Ctrl+1`–`Ctrl+9` |
-| Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` (also `⌘~`, `⌘⇧]`, `⌘⇧[`) | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
+| Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | Toggle sidebar | `⌘B` | `Ctrl+B` |
 | Toggle embedded terminal | `⌘J` | `Ctrl+J` |
 | Settings | `⌘,` | `Ctrl+,` |
@@ -110,6 +111,8 @@ Packaged builds check GitHub Releases 10 seconds after launch and every 6 hours.
 | Navigate back / forward | `⌘⌥←` / `⌘⌥→` | `Ctrl+Alt+Left/Right` (or mouse buttons 4/5) |
 | Show shortcuts | `⌘/` | `Ctrl+/` |
 | Send / stop turn | `Enter` / `Esc` | `Enter` / `Esc` |
+
+Aliases for tab cycling that also work: `⌘~`, `⌘PgUp` / `⌘PgDn`, `⌘⇧[` / `⌘⇧]` (Ctrl-prefixed on Windows / Linux).
 
 ## Build from source
 
@@ -135,11 +138,11 @@ The dev script launches Electron with hot reload. First-run rebuilds `better-sql
 
 ```bash
 npm run package        # host platform
-npm run package:mac    # .dmg + .zip (arm64 or x64, matches the host arch)
-npm run package:win    # NSIS .exe (run on a Windows host or via CI)
+npm run package:mac    # .dmg + .zip — matches the host arch (arm64 on Apple Silicon, x64 on Intel)
+npm run package:win    # NSIS .exe (run on a Windows host)
 ```
 
-Output lands in `dist/`. The macOS build uses the bundled `resources/icon.icns` (Apple icon-grid); Windows + Linux use `resources/icon.png`.
+Output lands in `dist/`. The macOS build uses the bundled `resources/icon.icns` (Apple icon-grid); Windows + Linux use `resources/icon.png`. CI (`.github/workflows/release.yml`) builds the arm64 mac DMG + Windows installer for each tag push; Intel mac + Linux installers must be self-built.
 
 ### Development scripts
 
