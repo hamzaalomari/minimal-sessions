@@ -384,4 +384,47 @@ describe('sessions store', () => {
       });
     });
   });
+
+  /** Pending-terminal-command is the plumbing behind both Sign-in-to-Claude
+   *  and Plugin install. Easy to break by accident, so cover the contract:
+   *  strings normalise to a one-step array, explicit step arrays are stored
+   *  verbatim, and consume clears the slot. */
+  describe('pendingTerminalCommands', () => {
+    beforeEach(() => {
+      useSessions.setState({ pendingTerminalCommands: {} });
+    });
+
+    it('normalises a string into a one-step array', () => {
+      useSessions.getState().setPendingTerminalCommand('sess-1', 'claude\n');
+      const steps = useSessions
+        .getState()
+        .consumePendingTerminalCommand('sess-1');
+      expect(steps).toEqual([{ text: 'claude\n' }]);
+    });
+
+    it('stores an explicit step array verbatim — the Sign-in two-step sequence', () => {
+      const queue = [
+        { text: 'claude\n', delayMs: 250 },
+        { text: '/login\n', delayMs: 2000 },
+      ];
+      useSessions.getState().setPendingTerminalCommand('sess-2', queue);
+      expect(
+        useSessions.getState().consumePendingTerminalCommand('sess-2'),
+      ).toEqual(queue);
+    });
+
+    it('clears the slot after consume', () => {
+      useSessions.getState().setPendingTerminalCommand('sess-3', 'foo\n');
+      useSessions.getState().consumePendingTerminalCommand('sess-3');
+      expect(
+        useSessions.getState().consumePendingTerminalCommand('sess-3'),
+      ).toBeUndefined();
+    });
+
+    it('returns undefined for sessions with no pending steps', () => {
+      expect(
+        useSessions.getState().consumePendingTerminalCommand('sess-none'),
+      ).toBeUndefined();
+    });
+  });
 });

@@ -253,14 +253,31 @@ export function App() {
       });
       targetId = session.id;
     }
-    state.setPendingTerminalCommand(targetId, 'claude login\n');
+    // The Claude CLI doesn't expose `login` as a subcommand — `claude login`
+    // is parsed as "start claude with `login` as the initial prompt". The
+    // correct flow is to start the REPL first, wait for it to be ready, then
+    // send `/login` as a slash command inside the running TUI.
+    const steps = [
+      { text: 'claude\n', delayMs: 250 },
+      { text: '/login\n', delayMs: 2000 },
+    ];
+    state.setPendingTerminalCommand(targetId, steps);
     if (!state.terminalOpenIds.includes(targetId)) {
       state.toggleTerminalOpen(targetId);
     } else {
       // Terminal already open — write directly since the consume hook only
-      // fires on PTY open. Pop our own command and write it now.
-      const cmd = state.consumePendingTerminalCommand(targetId);
-      if (cmd) void window.api.terminal.write(targetId, cmd);
+      // fires on PTY open. Pop our own steps and replay them with their
+      // own delays from "now".
+      const pending = state.consumePendingTerminalCommand(targetId);
+      if (pending) {
+        let cumulative = 0;
+        for (const step of pending) {
+          cumulative += step.delayMs ?? 250;
+          setTimeout(() => {
+            void window.api.terminal.write(targetId!, step.text);
+          }, cumulative);
+        }
+      }
     }
     state.selectSession(targetId);
   };

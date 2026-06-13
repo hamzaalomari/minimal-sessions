@@ -91,16 +91,21 @@ export function Terminal({ session, onClose }: TerminalProps) {
       .open(session.id, session.path, term.cols, term.rows)
       .then(() => {
         term.focus();
-        // If something queued a command to run on open (e.g. "Sign in to
-        // Claude" → `claude login`), write it now. Small delay so the shell
-        // has time to print its prompt before our characters arrive.
-        const pending = useSessions
+        // If something queued one or more writes to run on open (e.g.
+        // "Sign in to Claude" → start claude, wait, send `/login`), run
+        // the sequence now. Each step's delay accumulates so step N fires
+        // sum(delay_1..N) ms after PTY open.
+        const steps = useSessions
           .getState()
           .consumePendingTerminalCommand(session.id);
-        if (pending) {
-          setTimeout(() => {
-            void window.api.terminal.write(session.id, pending);
-          }, 250);
+        if (steps && steps.length > 0) {
+          let cumulative = 0;
+          for (const step of steps) {
+            cumulative += step.delayMs ?? 250;
+            setTimeout(() => {
+              void window.api.terminal.write(session.id, step.text);
+            }, cumulative);
+          }
         }
       })
       .catch((e) => {
