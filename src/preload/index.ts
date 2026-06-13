@@ -8,6 +8,7 @@ const api: Api = {
     platform: () => ipcRenderer.invoke('app:platform'),
     closeWindow: () => ipcRenderer.invoke('app:close-window'),
     homeDir: () => ipcRenderer.invoke('app:home-dir'),
+    version: () => ipcRenderer.invoke('app:version'),
     openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
     onRequestCloseTab: (handler) => {
       const listener = (): void => handler();

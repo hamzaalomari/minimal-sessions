@@ -329,6 +329,7 @@ function registerIpc(): void {
   ipcMain.handle('app:ping', () => 'pong' as const);
   ipcMain.handle('app:platform', () => platform as Platform);
   ipcMain.handle('app:home-dir', () => homedir());
+  ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('app:open-external', (_e, url: string) => {
     // Only open well-formed http(s) URLs from the renderer — anything else
     // (file://, javascript:, custom schemes) is ignored to avoid surprises.

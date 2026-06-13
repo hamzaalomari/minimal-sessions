@@ -92,6 +92,25 @@
   cursor: pointer;
 }
 
+.set-action:disabled {
+  cursor: default;
+  color: var(--faint);
+}
+
+.set-action:disabled:hover {
+  background: transparent;
+}
+
+.set-version {
+  margin: 6px 12px 4px;
+  font-size: 10.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-align: right;
+  user-select: none;
+}
+
 .set-label {
   font-size: 13px;
   font-weight: 500;

@@ -1,7 +1,44 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Api, UpdaterState } from '@shared/api';
 import { SettingsPopover } from './SettingsPopover';
+
+/** Install a minimal `window.api` so the SettingsPopover's Updates section
+ *  has something to read. Returns the check spy so individual tests can
+ *  assert on it. */
+function installApiForUpdates(version: string, updater: UpdaterState): { check: ReturnType<typeof vi.fn> } {
+  const check = vi.fn().mockResolvedValue(undefined);
+  const api: Pick<Api, 'app' | 'updater'> = {
+    app: {
+      ping: vi.fn().mockResolvedValue('pong' as const),
+      platform: vi.fn().mockResolvedValue('darwin'),
+      closeWindow: vi.fn().mockResolvedValue(undefined),
+      homeDir: vi.fn().mockResolvedValue('/Users/h'),
+      version: vi.fn().mockResolvedValue(version),
+      openExternal: vi.fn().mockResolvedValue(undefined),
+      onRequestCloseTab: vi.fn(() => () => {}),
+      onRequestNewSession: vi.fn(() => () => {}),
+      onRequestToggleSidebar: vi.fn(() => () => {}),
+      onRequestOpenSettings: vi.fn(() => () => {}),
+      onRequestOpenSearch: vi.fn(() => () => {}),
+      onRequestToggleTerminal: vi.fn(() => () => {}),
+      onRequestSelectTab: vi.fn(() => () => {}),
+      onRequestNavigateBack: vi.fn(() => () => {}),
+      onRequestNavigateForward: vi.fn(() => () => {}),
+      onRequestNextTab: vi.fn(() => () => {}),
+      onRequestPrevTab: vi.fn(() => () => {}),
+    },
+    updater: {
+      getState: vi.fn().mockResolvedValue(updater),
+      check,
+      install: vi.fn().mockResolvedValue(undefined),
+      onState: vi.fn(() => () => {}),
+    },
+  };
+  (window as unknown as { api: Pick<Api, 'app' | 'updater'> }).api = api;
+  return { check };
+}
 
 const baseProps = {
   anchor: { left: 10, top: 10 },
@@ -75,5 +112,52 @@ describe('<SettingsPopover>', () => {
     render(<SettingsPopover {...baseProps} onClose={onClose} triggerEl={trigger} />);
     fireEvent.mouseDown(trigger);
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('<SettingsPopover> Updates section', () => {
+  afterEach(() => {
+    delete (window as unknown as { api?: unknown }).api;
+  });
+
+  it('renders the current app version', async () => {
+    installApiForUpdates('1.2.3', { status: 'idle', enabled: true });
+    render(<SettingsPopover {...baseProps} />);
+    await waitFor(() => {
+      expect(screen.getByText(/Minimal Sessions v1.2.3/)).toBeInTheDocument();
+    });
+  });
+
+  it('disables the Check-for-updates button when the updater is off', async () => {
+    installApiForUpdates('1.0.0', { status: 'idle', enabled: false });
+    render(<SettingsPopover {...baseProps} />);
+    await waitFor(() => {
+      const btn = screen.getByTestId('check-for-updates');
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveTextContent(/Auto-update disabled/);
+    });
+  });
+
+  it('fires window.api.updater.check() when the user clicks Check for updates', async () => {
+    const user = userEvent.setup();
+    const { check } = installApiForUpdates('1.0.0', { status: 'idle', enabled: true });
+    render(<SettingsPopover {...baseProps} />);
+    const btn = await screen.findByTestId('check-for-updates');
+    await user.click(btn);
+    expect(check).toHaveBeenCalled();
+  });
+
+  it('summarizes a ready-to-install update', async () => {
+    installApiForUpdates('1.0.0', {
+      status: 'ready',
+      enabled: true,
+      version: '1.1.0',
+    });
+    render(<SettingsPopover {...baseProps} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('check-for-updates')).toHaveTextContent(
+        /v1.1.0 ready — restart to install/,
+      );
+    });
   });
 });

@@ -29,6 +29,7 @@ function installApi(platform: Platform = 'darwin'): Api & MenuFiringApi {
       platform: vi.fn().mockResolvedValue(platform),
       closeWindow: vi.fn().mockResolvedValue(undefined),
       homeDir: vi.fn().mockResolvedValue('/Users/h'),
+      version: vi.fn().mockResolvedValue('0.0.0'),
       openExternal: vi.fn().mockResolvedValue(undefined),
       onRequestCloseTab: vi.fn((handler: () => void) => {
         closeTabHandler = handler;
