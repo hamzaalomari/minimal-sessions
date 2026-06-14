@@ -69,9 +69,17 @@ jobs:
 
       # upload-artifact@v4 doesn't expand `{dmg,zip,yml}` brace globs the
       # way bash does; the literal pattern matches zero files. List each
-      # extension on its own line instead. `dist/*` covers everything
-      # electron-builder writes (DMG/ZIP/EXE + the metadata YML files
-      # electron-updater consumes).
+      # extension on its own line instead.
+      #
+      # The `dist/latest*.yml` pattern matches only the electron-updater
+      # metadata (`latest.yml` on Windows, `latest-mac.yml` on macOS) and
+      # deliberately excludes `dist/builder-debug.yml`. Each platform
+      # writes its own `builder-debug.yml`, so a broader `dist/*.yml`
+      # uploads the same filename twice — the release-attach step then
+      # collides on the second upload and the job fails on a 404 from
+      # the asset-label-restore call, even though the real installers
+      # land correctly. Skipping builder-debug.yml here keeps the
+      # workflow green.
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -80,7 +88,7 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/*.exe
-            dist/*.yml
+            dist/latest*.yml
             dist/*.blockmap
           if-no-files-found: error
           retention-days: 7
@@ -105,5 +113,5 @@ jobs:
             artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
-            artifacts/**/*.yml
+            artifacts/**/latest*.yml
             artifacts/**/*.blockmap
