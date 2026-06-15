@@ -23,8 +23,7 @@
     "rebuild:electron": "node scripts/rebuild-native.mjs --runtime=electron",
     "rebuild:node": "node scripts/rebuild-native.mjs --runtime=node",
     "package": "npm run build && electron-builder",
-    "package:mac": "npm run build && electron-builder --mac",
-    "package:win": "npm run build && electron-builder --win"
+    "package:mac": "npm run build && electron-builder --mac"
   },
   "build": {
     "appId": "com.minimalsessions.app",
@@ -62,16 +61,6 @@
       ],
       "category": "public.app-category.developer-tools",
       "identity": null
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
     }
   },
   "dependencies": {

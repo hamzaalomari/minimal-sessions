@@ -13,17 +13,21 @@ A minimal desktop client for running multiple Claude coding sessions in parallel
 
 ## Download
 
-Pre-built installers land on the [GitHub Releases page](https://github.com/hamzaalomari/minimal-sessions/releases) for every tagged version. Look for:
+Pre-built installers land on the [GitHub Releases page](https://github.com/hamzaalomari/minimal-sessions/releases) for every tagged version. The project currently ships **macOS (Apple Silicon) only** — grab the `…-arm64.dmg` file.
 
-- **macOS (Apple Silicon)** — the `…-arm64.dmg` file.
-- **Windows** — the `Minimal Sessions Setup …exe` file.
+**Intel Macs:** there is no x64 installer today — GitHub's free macOS x64 runners are being deprecated and we don't cross-compile yet. Apple Silicon covers every Mac sold since 2020; if you're on Intel, build from source ([Build from source](#build-from-source) below). Same goes for Windows and Linux — `npm run dev` or `npm run package` from a local clone works.
 
-**Intel Macs:** there is no x64 installer in v0.1.0 — GitHub's free macOS x64 runners are being deprecated and we don't cross-compile yet. Apple Silicon covers every Mac sold since 2020; if you're on Intel, build from source ([Build from source](#build-from-source) below). Same goes for Linux — there's no Linux build today; `npm run dev` or `npm run package` from source works.
+The installer is **unsigned** while the project is in early access (an Apple Developer ID is a planned follow-up). On modern macOS, a downloaded unsigned DMG triggers the *"Minimal Sessions.dmg is damaged and can't be opened"* dialog. The DMG isn't actually damaged — that message is what Gatekeeper shows when there's no Developer ID signature on a file with the `com.apple.quarantine` attribute. Strip the attribute and the DMG mounts normally:
 
-The installers are **unsigned** while the project is in early access (code-signing certs are a planned follow-up). The OS shows a one-time warning the first time you open the app:
+```bash
+xattr -dr com.apple.quarantine ~/Downloads/Minimal.Sessions-0.1.0-arm64.dmg
+```
 
-- **macOS** — Gatekeeper says "Apple could not verify…". Right-click the app in `Applications` → **Open** → confirm. After that it launches normally. (Equivalent path: System Settings → Privacy & Security → scroll down → **Open Anyway**.)
-- **Windows** — SmartScreen says "Windows protected your PC". Click **More info** → **Run anyway**.
+Then double-click the DMG and drag the app to `Applications`. If macOS still complains when launching the installed app, run the same command against the `.app` bundle:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Minimal Sessions.app"
+```
 
 You only have to do this once per machine.
 
@@ -98,9 +102,9 @@ Packaged builds check GitHub Releases 10 seconds after launch and every 6 hours.
 
 ## Keyboard shortcuts
 
-`⌘/` (Ctrl+/ on Windows + Linux) opens the in-app cheatsheet — that's the source of truth. The greatest hits:
+`⌘/` (Ctrl+/ on Linux) opens the in-app cheatsheet — that's the source of truth. The greatest hits:
 
-| Action | macOS | Windows / Linux |
+| Action | macOS | Linux |
 |---|---|---|
 | New session | `⌘N` | `Ctrl+N` |
 | Close tab | `⌘W` | `Ctrl+W` |
@@ -114,7 +118,7 @@ Packaged builds check GitHub Releases 10 seconds after launch and every 6 hours.
 | Show shortcuts | `⌘/` | `Ctrl+/` |
 | Send / stop turn | `Enter` / `Esc` | `Enter` / `Esc` |
 
-Aliases for tab cycling that also work: `⌘~`, `⌘PgUp` / `⌘PgDn`, `⌘⇧[` / `⌘⇧]` (Ctrl-prefixed on Windows / Linux).
+Aliases for tab cycling that also work: `⌘~`, `⌘PgUp` / `⌘PgDn`, `⌘⇧[` / `⌘⇧]` (Ctrl-prefixed on Linux).
 
 ## Build from source
 
@@ -122,7 +126,7 @@ Aliases for tab cycling that also work: `⌘~`, `⌘PgUp` / `⌘PgDn`, `⌘⇧[`
 
 - **Node.js 20+** (npm ships with Node). Check with `node -v`.
 - **[Claude Code](https://claude.com/claude-code) installed and authenticated.** The Agent SDK reuses your local `claude` CLI session — there's no API key configured in the app.
-- **macOS, Windows, or Linux** with a desktop environment. The native modules (`better-sqlite3`, `node-pty`) need a C++ toolchain on first install — Xcode Command Line Tools on macOS, Build Tools for Visual Studio on Windows, `build-essential` on Linux.
+- **macOS or Linux** with a desktop environment. The native modules (`better-sqlite3`, `node-pty`) need a C++ toolchain on first install — Xcode Command Line Tools on macOS, `build-essential` on Linux.
 - **Git** for cloning.
 
 ### Install + run
@@ -141,10 +145,9 @@ The dev script launches Electron with hot reload. First-run rebuilds `better-sql
 ```bash
 npm run package        # host platform
 npm run package:mac    # .dmg + .zip — matches the host arch (arm64 on Apple Silicon, x64 on Intel)
-npm run package:win    # NSIS .exe (run on a Windows host)
 ```
 
-Output lands in `dist/`. The macOS build uses the bundled `resources/icon.icns` (Apple icon-grid); Windows + Linux use `resources/icon.png`. CI (`.github/workflows/release.yml`) builds the arm64 mac DMG + Windows installer for each tag push; Intel mac + Linux installers must be self-built.
+Output lands in `dist/`. The macOS build uses the bundled `resources/icon.icns` (Apple icon-grid); other platforms fall back to `resources/icon.png`. CI (`.github/workflows/release.yml`) builds the arm64 mac DMG for each tag push; Intel mac and Linux installers must be self-built.
 
 ### Development scripts
 
