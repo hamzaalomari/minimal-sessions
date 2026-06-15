@@ -1,20 +1,24 @@
 name: Release
 
-# Tag a commit like `v0.1.0` and push → this workflow builds installers
-# on macOS (arm64) and Windows (x64) and uploads them to a draft GitHub
-# Release. We don't auto-publish; you review the artifacts and flip the
-# draft to released by hand.
+# Tag a commit like `v0.1.0` and push → this workflow builds the macOS
+# (arm64) installer and uploads it to a draft GitHub Release. We don't
+# auto-publish; you review the artifact and flip the draft to released
+# by hand.
 #
-# Why arm64-only for macOS: GitHub's `macos-13` x64 runner pool is being
-# phased out (queue-starved on 2026-06-13), and cross-compiling to x64
-# from `macos-14` arm64 needs explicit prebuild-arch handling that we
+# Why arm64-only: GitHub's `macos-13` x64 runner pool is being phased
+# out (queue-starved on 2026-06-13), and cross-compiling to x64 from
+# `macos-14` arm64 needs explicit prebuild-arch handling that we
 # haven't wired. Apple Silicon covers every Mac sold since 2020, so we
 # ship arm64 for now; Intel Mac users can self-build via `npm run
 # package:mac` until we re-enable an x64 runner.
 #
+# Why no Windows: this is currently a macOS-only project (no signed
+# Windows installer pipeline). Linux + Windows users can still build
+# from source — see README "Build from source".
+#
 # Code signing isn't wired yet — see specs/plan.md M5 punch list. Until
-# certs are in place, the produced installers are unsigned and trigger
-# Gatekeeper / SmartScreen warnings on install. Fine for dev testing.
+# certs are in place, the produced installer is unsigned and triggers
+# Gatekeeper warnings on install. Fine for dev testing.
 
 on:
   push:
@@ -38,10 +42,6 @@ jobs:
             runner: macos-14
             arch: arm64
             package: package:mac
-          - os-label: Windows
-            runner: windows-2022
-            arch: x64
-            package: package:win
 
     steps:
       - uses: actions/checkout@v4
@@ -71,15 +71,11 @@ jobs:
       # way bash does; the literal pattern matches zero files. List each
       # extension on its own line instead.
       #
-      # The `dist/latest*.yml` pattern matches only the electron-updater
-      # metadata (`latest.yml` on Windows, `latest-mac.yml` on macOS) and
-      # deliberately excludes `dist/builder-debug.yml`. Each platform
-      # writes its own `builder-debug.yml`, so a broader `dist/*.yml`
-      # uploads the same filename twice — the release-attach step then
-      # collides on the second upload and the job fails on a 404 from
-      # the asset-label-restore call, even though the real installers
-      # land correctly. Skipping builder-debug.yml here keeps the
-      # workflow green.
+      # `dist/latest*.yml` matches only the electron-updater metadata
+      # (`latest-mac.yml`) and deliberately excludes
+      # `dist/builder-debug.yml`, which has the same name as the
+      # equivalent file from any other platform and would collide on
+      # the release-attach step if we ever re-add a second platform.
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -87,7 +83,6 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
-            dist/*.exe
             dist/latest*.yml
             dist/*.blockmap
           if-no-files-found: error
@@ -112,6 +107,5 @@ jobs:
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.zip
-            artifacts/**/*.exe
             artifacts/**/latest*.yml
             artifacts/**/*.blockmap
