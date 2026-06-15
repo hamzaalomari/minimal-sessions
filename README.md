@@ -20,7 +20,7 @@ Pre-built installers land on the [GitHub Releases page](https://github.com/hamza
 The installer is **unsigned** while the project is in early access (an Apple Developer ID is a planned follow-up). On modern macOS, a downloaded unsigned DMG triggers the *"Minimal Sessions.dmg is damaged and can't be opened"* dialog. The DMG isn't actually damaged — that message is what Gatekeeper shows when there's no Developer ID signature on a file with the `com.apple.quarantine` attribute. Strip the attribute and the DMG mounts normally:
 
 ```bash
-xattr -dr com.apple.quarantine ~/Downloads/Minimal.Sessions-0.1.0-arm64.dmg
+xattr -dr com.apple.quarantine ~/Downloads/Minimal.Sessions-0.1.1-arm64.dmg
 ```
 
 Then double-click the DMG and drag the app to `Applications`. If macOS still complains when launching the installed app, run the same command against the `.app` bundle:
