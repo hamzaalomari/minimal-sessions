@@ -16,9 +16,12 @@ name: Release
 # Windows installer pipeline). Linux + Windows users can still build
 # from source — see README "Build from source".
 #
-# Code signing isn't wired yet — see specs/plan.md M5 punch list. Until
-# certs are in place, the produced installer is unsigned and triggers
-# Gatekeeper warnings on install. Fine for dev testing.
+# macOS signing + notarization runs on the GitHub runner using the
+# Developer ID Application cert + private key supplied via repo
+# secrets (CSC_LINK is a base64-encoded .p12). electron-builder signs
+# and notarizes the inner .app automatically; an explicit step after
+# the build notarizes + staples the DMG container too so the download
+# experience is fully clean.
 
 on:
   push:
@@ -63,9 +66,37 @@ jobs:
           # package.json scripts don't need to change).
           EP_PUBLISH: 'never'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS notarization stays off until certs are wired.
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # macOS signing — base64-encoded .p12 + its password.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # macOS notarization — Apple ID, app-specific password, team.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run ${{ matrix.package }} -- --publish=never
+
+      # electron-builder notarizes the inner .app but not the DMG
+      # container. Without this step, downloading the DMG triggers an
+      # "Apple cannot check it" warning on first open even though the
+      # installed .app launches cleanly. Submitting the DMG separately
+      # and stapling the ticket clears that warning too.
+      - name: Notarize + staple DMG
+        if: matrix.os-label == 'macOS'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          DMG_FILE=$(ls dist/*.dmg | head -1)
+          echo "Submitting $DMG_FILE to Apple for notarization…"
+          xcrun notarytool submit "$DMG_FILE" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --wait
+          xcrun stapler staple "$DMG_FILE"
+          spctl -a -t open --context context:primary-signature -vv "$DMG_FILE"
 
       # upload-artifact@v4 doesn't expand `{dmg,zip,yml}` brace globs the
       # way bash does; the literal pattern matches zero files. List each

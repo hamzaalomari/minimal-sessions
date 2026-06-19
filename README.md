@@ -17,19 +17,9 @@ Pre-built installers land on the [GitHub Releases page](https://github.com/hamza
 
 **Intel Macs:** there is no x64 installer today — GitHub's free macOS x64 runners are being deprecated and we don't cross-compile yet. Apple Silicon covers every Mac sold since 2020; if you're on Intel, build from source ([Build from source](#build-from-source) below). Same goes for Windows and Linux — `npm run dev` or `npm run package` from a local clone works.
 
-The installer is **unsigned** while the project is in early access (an Apple Developer ID is a planned follow-up). On modern macOS, a downloaded unsigned DMG triggers the *"Minimal Sessions.dmg is damaged and can't be opened"* dialog. The DMG isn't actually damaged — that message is what Gatekeeper shows when there's no Developer ID signature on a file with the `com.apple.quarantine` attribute. Strip the attribute and the DMG mounts normally:
+Double-click the DMG and drag the app to `Applications`. Releases from v0.1.3 onward are signed with an Apple Developer ID and notarized by Apple, so Gatekeeper opens them without warnings.
 
-```bash
-xattr -dr com.apple.quarantine ~/Downloads/Minimal.Sessions-0.1.2-arm64.dmg
-```
-
-Then double-click the DMG and drag the app to `Applications`. If macOS still complains when launching the installed app, run the same command against the `.app` bundle:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Minimal Sessions.app"
-```
-
-You only have to do this once per machine.
+> If you're running an older release (v0.1.2 or earlier — unsigned), macOS shows a *"…is damaged and can't be opened"* dialog instead. Either grab the latest release or strip the quarantine attribute: `xattr -dr com.apple.quarantine ~/Downloads/Minimal.Sessions-<version>-arm64.dmg`.
 
 ## First launch — sign in to Claude
 
