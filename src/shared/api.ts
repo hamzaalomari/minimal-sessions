@@ -47,6 +47,21 @@ export interface CreateSessionInput {
   systemPrompt?: string;
   branch?: string;
   createdAt?: number;
+  /** If set, the first chat turn resumes this SDK session id instead of starting fresh.
+   *  Used when the user picks an existing Claude Code session from the resume picker. */
+  sdkSessionId?: string;
+}
+
+/** A past Claude Code session found in `~/.claude/projects/<cwd>/` — surfaced
+ *  in the "Resume past session" picker inside the New Session panel. */
+export interface ClaudeHistoryEntry {
+  sessionId: string;
+  /** mtime of the underlying jsonl file (ms since epoch). */
+  modifiedAt: number;
+  /** First user message text, trimmed to ~200 chars. */
+  preview: string;
+  /** Total user-turn count so trivial sessions (one-shot probes) can be hidden. */
+  userTurnCount: number;
 }
 
 /** A model entry returned by `api.models.list()`. */
@@ -154,6 +169,9 @@ export interface Api {
   fs: {
     /** Native OS folder picker. Resolves to the picked absolute path, or null if cancelled. */
     pickDirectory(): Promise<string | null>;
+    /** Native OS file picker (multi-select). Resolves to the picked absolute
+     *  paths, or `[]` if cancelled. `defaultPath` opens the picker there. */
+    pickFiles(defaultPath?: string): Promise<string[]>;
     /** Reads `.git/HEAD` for `path`. Returns the branch name, short SHA for detached HEAD, or ''. */
     branchFor(path: string): Promise<string>;
     /** True if `path` is an existing, readable directory. */
@@ -200,6 +218,12 @@ export interface Api {
     onEvent(
       handler: (sessionId: SessionId, event: ChatEvent) => void,
     ): Unsubscribe;
+  };
+  claudeHistory: {
+    /** Past Claude Code sessions recorded for `cwd` (from `~/.claude/projects/<encoded>/`),
+     *  sorted most-recently-active first. Internal model-probe sessions are
+     *  filtered out. */
+    list(cwd: string): Promise<ClaudeHistoryEntry[]>;
   };
   sessions: {
     /** Active (non-deleted) sessions with their turns embedded, ordered by most-recently-active. */

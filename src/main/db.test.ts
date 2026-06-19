@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Session, Turn } from '@shared/types';
-import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
+import { openSessionsDb, type SessionsDb } from './db';
 
 function turn(
   id: string,
@@ -280,40 +280,3 @@ describe('SessionsDb', () => {
   });
 });
 
-describe('seedIfEmpty', () => {
-  let db: SessionsDb;
-
-  beforeEach(() => {
-    db = openSessionsDb(':memory:');
-  });
-
-  afterEach(() => {
-    db.close();
-  });
-
-  it('inserts seeds and their turns when the DB is empty', () => {
-    const seed: Session = {
-      ...seedSession('s1'),
-      turns: [turn('t1', 'user', 'q', 100), turn('t2', 'assistant', 'a', 200, 'Sonnet')],
-    };
-    const ran = seedIfEmpty(db, [seed]);
-    expect(ran).toBe(true);
-    const list = db.listSessions();
-    expect(list).toHaveLength(1);
-    expect(list[0]!.turns).toHaveLength(2);
-    expect(list[0]!.turns[1]!.modelShort).toBe('Sonnet');
-  });
-
-  it('is a no-op when the DB already has sessions', () => {
-    db.createSession({ id: 'existing', name: 'x', path: '/x', model: 'm', createdAt: 1 });
-    const ran = seedIfEmpty(db, [seedSession('s1')]);
-    expect(ran).toBe(false);
-    expect(db.listSessions().map((s) => s.id)).toEqual(['existing']);
-  });
-
-  it('does nothing when the seed list is empty', () => {
-    const ran = seedIfEmpty(db, []);
-    expect(ran).toBe(false);
-    expect(db.listSessions()).toEqual([]);
-  });
-});
