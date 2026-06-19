@@ -96,7 +96,7 @@ jobs:
             --password "$APPLE_APP_SPECIFIC_PASSWORD" \
             --wait
           xcrun stapler staple "$DMG_FILE"
-          spctl -a -t open --context context:primary-signature -vv "$DMG_FILE"
+          xcrun stapler validate "$DMG_FILE"
 
       # upload-artifact@v4 doesn't expand `{dmg,zip,yml}` brace globs the
       # way bash does; the literal pattern matches zero files. List each
