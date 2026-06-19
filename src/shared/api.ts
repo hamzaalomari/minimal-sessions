@@ -131,6 +131,11 @@ export interface Api {
     homeDir(): Promise<string>;
     /** Current app version from `package.json` — shown in Settings. */
     version(): Promise<string>;
+    /** Absolute path to the main-process diagnostic log file. Empty string if the logger
+     *  failed to initialise (e.g. unwritable logs dir). */
+    logPath(): Promise<string>;
+    /** Open Finder / Explorer at the log file, highlighting it. No-op if the path is empty. */
+    revealLog(): Promise<void>;
     /** Open a URL in the user's default browser. Only http(s) URLs are
      *  honored; anything else (file://, javascript:, custom schemes) is
      *  silently ignored. */

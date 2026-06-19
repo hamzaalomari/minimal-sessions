@@ -197,6 +197,24 @@ export function SettingsPopover({
         </div>
         <Icon name="sliders" style={{ width: 18, height: 18, color: 'var(--faint)' }} />
       </button>
+      <div className="set-sep" />
+      <button
+        type="button"
+        className="set-row set-action"
+        onClick={() => {
+          void window.api?.app?.revealLog?.();
+        }}
+        data-testid="reveal-log"
+      >
+        <div>
+          <div className="set-label">Reveal diagnostic log</div>
+          <div className="set-sub">
+            Opens Finder at <code>main.log</code> — useful when sending a
+            message produces no reply.
+          </div>
+        </div>
+        <Icon name="terminal" style={{ width: 18, height: 18, color: 'var(--faint)' }} />
+      </button>
       {version && (
         <div className="set-version" aria-label={`Version ${version}`}>
           Minimal Sessions v{version}

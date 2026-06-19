@@ -1,7 +1,7 @@
 {
   "name": "minimal-sessions",
   "productName": "Minimal Sessions",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "license": "MIT",
   "description": "A minimal desktop client for running multiple Claude coding sessions in parallel, each scoped to a working folder and model.",
