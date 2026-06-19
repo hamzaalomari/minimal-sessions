@@ -9,6 +9,7 @@ import type { SessionId, TokenUsage, Turn } from '@shared/types';
 import { openSessionsDb, type SessionsDb } from './db';
 import { branchFor, dirExists, gitInitSession, type GitInitSessionInput } from './fs';
 import { listClaudeSessions } from './claudeHistory';
+import { log, logPath } from './log';
 import { discoverCommands, discoverSkills, setBuiltinCommandsDir } from './plugins';
 import {
   listSupportedModels,
@@ -337,6 +338,12 @@ function registerIpc(): void {
   ipcMain.handle('app:platform', () => platform as Platform);
   ipcMain.handle('app:home-dir', () => homedir());
   ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('app:log-path', () => logPath());
+  ipcMain.handle('app:reveal-log', () => {
+    const p = logPath();
+    if (!p) return;
+    shell.showItemInFolder(p);
+  });
   ipcMain.handle('app:open-external', (_e, url: string) => {
     // Only open well-formed http(s) URLs from the renderer — anything else
     // (file://, javascript:, custom schemes) is ignored to avoid surprises.
@@ -399,9 +406,18 @@ function registerIpc(): void {
       turnId: string,
       globalSystemPrompt = '',
     ) => {
+      log('chat:send', 'invoked', {
+        sessionId,
+        turnId,
+        promptLen: userText.length,
+        hasGlobalSystemPrompt: Boolean(globalSystemPrompt),
+      });
       const db = getDb();
       const session = db.listSessions().find((s) => s.id === sessionId);
-      if (!session) throw new Error(`Session not found: ${sessionId}`);
+      if (!session) {
+        log('chat:send', 'session-not-found', { sessionId });
+        throw new Error(`Session not found: ${sessionId}`);
+      }
       // If a prior turn is somehow still tracked (e.g. crashed mid-stream),
       // abort it before starting a new one so the map stays consistent.
       inflight.get(sessionId)?.abort();
@@ -522,6 +538,14 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  log('app', 'ready', {
+    version: app.getVersion(),
+    platform,
+    packaged: app.isPackaged,
+    logPath: logPath(),
+    electron: process.versions.electron,
+    node: process.versions.node,
+  });
   // Dev-only Dock icon override. Compiled main lives at out/main/index.js,
   // so ../../resources/icon.png resolves to the project root in dev.
   if (!app.isPackaged && isMac && app.dock) {

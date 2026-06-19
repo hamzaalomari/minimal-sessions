@@ -23,6 +23,7 @@ import { ZERO_USAGE } from '@shared/types';
 import { parseMarkdown } from '@shared/markdown';
 import { pathForTool, summaryFor, toolKindFor } from '@shared/tool-display';
 import { discoverPlugins } from './plugins';
+import { log } from './log';
 
 /** Events the renderer subscribes to per assistant turn. */
 export type ChatEvent =
@@ -99,6 +100,17 @@ export async function runStreamingTurn(
   // so this is effectively free across turns of the same session.
   const plugins = discoverPlugins(session.path);
 
+  log('chat', 'runStreamingTurn:start', {
+    sessionId: session.id,
+    turnId,
+    cwd: session.path,
+    model: session.model,
+    resume: Boolean(resumeSdkSessionId),
+    plugins: plugins.length,
+    promptLen: userText.length,
+  });
+
+  let messageCount = 0;
   try {
     const iter = query({
       prompt: userText,
@@ -120,8 +132,17 @@ export async function runStreamingTurn(
         includePartialMessages: true,
       },
     });
+    log('chat', 'sdk:iterator-created', { turnId });
 
     for await (const msg of iter as AsyncIterable<SDKMessage>) {
+      messageCount += 1;
+      if (messageCount === 1) {
+        log('chat', 'sdk:first-message', {
+          turnId,
+          type: msg.type,
+          subtype: (msg as { subtype?: string }).subtype,
+        });
+      }
       if (msg.type === 'system' && (msg as SDKSystemMessage).subtype === 'init') {
         const init = msg as SDKSystemMessage;
         sdkSessionId = init.session_id || sdkSessionId;
@@ -247,6 +268,12 @@ export async function runStreamingTurn(
     }
     const addTokens =
       addUsage.input + addUsage.output + addUsage.cacheCreation + addUsage.cacheRead;
+    log('chat', 'runStreamingTurn:done', {
+      turnId,
+      messages: messageCount,
+      addTokens,
+      blocks: blocks.length,
+    });
     emit({ type: 'turn-stop', turnId, blocks, addTokens, addUsage, sdkSessionId });
   } catch (e) {
     // If the user pressed Stop, surface a short "Stopped." marker rather than
@@ -255,9 +282,16 @@ export async function runStreamingTurn(
       abortController?.signal.aborted === true ||
       (e as Error)?.name === 'AbortError';
     if (aborted) {
+      log('chat', 'runStreamingTurn:aborted', { turnId, messages: messageCount });
       blocks.push({ type: 'p', text: 'Stopped.' });
     } else {
       const message = (e as Error)?.message || String(e);
+      log('chat', 'runStreamingTurn:error', {
+        turnId,
+        messages: messageCount,
+        name: (e as Error)?.name,
+        message,
+      });
       blocks.push({ type: 'error', message });
       emit({ type: 'error', message });
     }
@@ -439,6 +473,7 @@ export interface SdkModel {
  * resolved its init response so no API call is ever made.
  */
 export async function listSupportedModels(): Promise<SdkModel[]> {
+  log('models', 'supportedModels:start');
   const abort = new AbortController();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q = (sdkQuery as any)({
@@ -452,17 +487,20 @@ export async function listSupportedModels(): Promise<SdkModel[]> {
   try {
     const raw = await Promise.race([q.supportedModels(), timeoutP]);
     const list = raw as Array<{ value: string; displayName: string; description: string }>;
-    console.log(
-      `[models] supportedModels returned ${list.length} entries:`,
-      list.map((m) => m.value).join(', '),
-    );
+    log('models', 'supportedModels:ok', {
+      count: list.length,
+      ids: list.map((m) => m.value),
+    });
     return list.map((m) => ({
       id: m.value,
       displayName: m.displayName,
       description: m.description,
     }));
   } catch (e) {
-    console.error('[models] supportedModels failed:', (e as Error).message);
+    log('models', 'supportedModels:error', {
+      name: (e as Error)?.name,
+      message: (e as Error)?.message,
+    });
     throw e;
   } finally {
     abort.abort();
