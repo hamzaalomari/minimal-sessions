@@ -77,6 +77,7 @@ const api: Api = {
   },
   fs: {
     pickDirectory: () => ipcRenderer.invoke('fs:pick-directory'),
+    pickFiles: (defaultPath) => ipcRenderer.invoke('fs:pick-files', defaultPath),
     branchFor: (path) => ipcRenderer.invoke('fs:branch-for', path),
     isReadableDir: (path) => ipcRenderer.invoke('fs:is-readable-dir', path),
     gitInitSession: (input) => ipcRenderer.invoke('fs:git-init-session', input),
@@ -110,6 +111,9 @@ const api: Api = {
       ipcRenderer.on('chat:event', listener);
       return () => ipcRenderer.removeListener('chat:event', listener);
     },
+  },
+  claudeHistory: {
+    list: (cwd) => ipcRenderer.invoke('claude-history:list', cwd),
   },
   sessions: {
     list: () => ipcRenderer.invoke('sessions:list'),

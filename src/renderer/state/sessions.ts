@@ -9,6 +9,8 @@ export interface CreateSessionInput {
   model: ModelId;
   systemPrompt?: string;
   branch?: string;
+  /** If set, the new session resumes this past Claude Code session id on the first turn. */
+  sdkSessionId?: string;
 }
 
 export type SidebarView = 'sessions' | 'history' | 'search' | 'analytics' | 'plugins';
@@ -200,7 +202,14 @@ export const useSessions = create<SessionsState>()(
         });
       },
 
-      createSession: ({ name, path, model, systemPrompt = '', branch = '' }) => {
+      createSession: ({
+        name,
+        path,
+        model,
+        systemPrompt = '',
+        branch = '',
+        sdkSessionId = '',
+      }) => {
         const now = Date.now();
         const session: Session = {
           id: newId(),
@@ -213,7 +222,7 @@ export const useSessions = create<SessionsState>()(
           lastActiveAt: now,
           tokens: 0,
           usage: { ...ZERO_USAGE },
-          sdkSessionId: '',
+          sdkSessionId,
           turns: [],
         };
         set((s) => ({
@@ -232,6 +241,7 @@ export const useSessions = create<SessionsState>()(
             systemPrompt,
             branch,
             createdAt: now,
+            ...(sdkSessionId ? { sdkSessionId } : {}),
           })
           .catch(() => {
             /* ignore — tests may stub a partial api */

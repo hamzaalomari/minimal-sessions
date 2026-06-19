@@ -316,6 +316,9 @@ export function App() {
       model: draft.model,
       systemPrompt: draft.systemPrompt,
       branch,
+      ...(draft.resumeSdkSessionId
+        ? { sdkSessionId: draft.resumeSdkSessionId }
+        : {}),
     });
   };
 

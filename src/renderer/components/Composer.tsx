@@ -138,6 +138,39 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   const folderName = session.path.split('/').pop() || session.path;
 
+  /** Quote a path with double-quotes if it contains a space or shell metachar,
+   *  so Claude can parse the message unambiguously. */
+  const quoteIfNeeded = (p: string): string =>
+    /[\s"'`$&|;()<>*?[\]{}\\]/.test(p) ? `"${p.replace(/"/g, '\\"')}"` : p;
+
+  const attach = async (): Promise<void> => {
+    const picker = window.api?.fs?.pickFiles;
+    if (!picker) return;
+    let paths: string[];
+    try {
+      paths = await picker(session.path);
+    } catch {
+      return;
+    }
+    if (paths.length === 0) return;
+    const insert = paths.map(quoteIfNeeded).join(' ');
+    const ta = taRef.current;
+    const start = ta?.selectionStart ?? value.length;
+    const end = ta?.selectionEnd ?? value.length;
+    const needsLeadingSpace = start > 0 && !/\s$/.test(value.slice(0, start));
+    const needsTrailingSpace = end < value.length && !/^\s/.test(value.slice(end));
+    const chunk =
+      (needsLeadingSpace ? ' ' : '') + insert + (needsTrailingSpace ? ' ' : '');
+    const next = value.slice(0, start) + chunk + value.slice(end);
+    onChange(next);
+    queueMicrotask(() => {
+      if (!taRef.current) return;
+      const pos = start + chunk.length;
+      taRef.current.focus();
+      taRef.current.setSelectionRange(pos, pos);
+    });
+  };
+
   const pickSuggestion = (text: string): void => {
     // Replace the slash-prefix segment (everything up to the first space) with
     // the picked command name. Preserves any trailing args the user already
@@ -188,7 +221,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             onPaste={onPaste}
           />
           <div className="composer-foot">
-            <button type="button" className="cf-btn" title="Attach" aria-label="Attach">
+            <button
+              type="button"
+              className="cf-btn"
+              title="Attach file(s)"
+              aria-label="Attach files"
+              onClick={attach}
+            >
               <Icon name="paperclip" />
             </button>
             <button type="button" className="cf-btn cf-model" title="Model for this session">

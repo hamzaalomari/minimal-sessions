@@ -6,8 +6,9 @@ import { dirname, join } from 'node:path';
 import { platform } from 'node:process';
 import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, TokenUsage, Turn } from '@shared/types';
-import { openSessionsDb, seedIfEmpty, type SessionsDb } from './db';
+import { openSessionsDb, type SessionsDb } from './db';
 import { branchFor, dirExists, gitInitSession, type GitInitSessionInput } from './fs';
+import { listClaudeSessions } from './claudeHistory';
 import { discoverCommands, discoverSkills, setBuiltinCommandsDir } from './plugins';
 import {
   listSupportedModels,
@@ -31,7 +32,6 @@ import {
   initAutoUpdater,
   quitAndInstallUpdate,
 } from './updater';
-import { SEED_SESSIONS } from '@shared/seed';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isMac = platform === 'darwin';
@@ -361,6 +361,18 @@ function registerIpc(): void {
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0] ?? null;
   });
+  ipcMain.handle('fs:pick-files', async (e, defaultPath?: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const opts: Electron.OpenDialogOptions = {
+      properties: ['openFile', 'multiSelections'],
+      ...(defaultPath ? { defaultPath } : {}),
+    };
+    const result = win
+      ? await dialog.showOpenDialog(win, opts)
+      : await dialog.showOpenDialog(opts);
+    if (result.canceled || result.filePaths.length === 0) return [];
+    return result.filePaths;
+  });
   ipcMain.handle('fs:branch-for', (_e, path: string) => branchFor(path));
   ipcMain.handle('fs:is-readable-dir', (_e, path: string) => dirExists(path));
   ipcMain.handle('fs:git-init-session', (_e, input: GitInitSessionInput) =>
@@ -427,8 +439,8 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('sessions:list', () => getDb().listSessions());
-  ipcMain.handle('sessions:create', (_e, input: CreateSessionInput) =>
-    getDb().createSession({
+  ipcMain.handle('sessions:create', (_e, input: CreateSessionInput) => {
+    const session = getDb().createSession({
       id: input.id,
       name: input.name,
       path: input.path,
@@ -436,7 +448,17 @@ function registerIpc(): void {
       systemPrompt: input.systemPrompt,
       branch: input.branch,
       createdAt: input.createdAt,
-    }),
+    });
+    // Resume-past-session flow: stash the SDK session id so the first turn
+    // continues the chosen Claude Code conversation instead of starting fresh.
+    if (input.sdkSessionId) {
+      getDb().updateSdkSessionId(input.id, input.sdkSessionId);
+      session.sdkSessionId = input.sdkSessionId;
+    }
+    return session;
+  });
+  ipcMain.handle('claude-history:list', (_e, cwd: string) =>
+    listClaudeSessions(cwd),
   );
   ipcMain.handle('sessions:rename', (_e, id: SessionId, name: string) =>
     getDb().renameSession(id, name),
@@ -516,7 +538,6 @@ app.whenReady().then(() => {
   setBuiltinCommandsDir(builtinCommands);
 
   sessionsDb = openSessionsDb(join(app.getPath('userData'), 'sessions.db'));
-  seedIfEmpty(sessionsDb, SEED_SESSIONS);
   registerIpc();
   Menu.setApplicationMenu(buildMenu());
   const win = createWindow();

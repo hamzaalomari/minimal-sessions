@@ -227,6 +227,11 @@ export function openSessionsDb(filename: string): SessionsDb {
     db.exec('ALTER TABLE turns ADD COLUMN tokens_cache_r INTEGER NOT NULL DEFAULT 0');
   }
 
+  // Earlier builds (<=0.1.3) seeded three demo sessions on first launch. The
+  // seeded rows all use IDs prefixed `seed-` — drop them on startup so users
+  // upgrading from those builds get a clean list. FK cascade clears turns.
+  db.exec("DELETE FROM sessions WHERE id LIKE 'seed-%'");
+
   const stmts: Statements = {
     listSessions: db.prepare(
       'SELECT * FROM sessions WHERE deleted_at = 0 ORDER BY last_active DESC',
@@ -412,28 +417,3 @@ export function openSessionsDb(filename: string): SessionsDb {
   };
 }
 
-/**
- * Seed an empty DB with starter sessions. No-op if any session exists.
- * Returns true if seeding ran.
- */
-export function seedIfEmpty(db: SessionsDb, seeds: Session[]): boolean {
-  if (seeds.length === 0) return false;
-  const existing = db.listSessions();
-  if (existing.length > 0) return false;
-  for (const s of seeds) {
-    db.createSession({
-      id: s.id,
-      name: s.name,
-      path: s.path,
-      model: s.model,
-      systemPrompt: s.systemPrompt,
-      branch: s.branch,
-      createdAt: s.createdAt,
-      tokens: s.tokens,
-    });
-    for (const t of s.turns) {
-      db.appendTurn(s.id, t, 0);
-    }
-  }
-  return true;
-}

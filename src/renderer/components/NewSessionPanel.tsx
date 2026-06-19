@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { ClaudeHistoryEntry } from '@shared/api';
 import type { ModelId } from '@shared/types';
 import { Icon } from './Icon';
 import { ModelPicker } from './ModelPicker';
@@ -17,6 +18,10 @@ export interface NewSessionDraft {
   systemPrompt: string;
   /** Git side-effect to run before the session opens. */
   git: { mode: GitMode; name?: string };
+  /** If the user picked a past Claude Code session from the resume list, this is
+   *  its SDK session id. The session record stores it so the first turn resumes
+   *  the conversation instead of starting fresh. */
+  resumeSdkSessionId?: string;
 }
 
 interface NewSessionPanelProps {
@@ -46,6 +51,9 @@ export function NewSessionPanel({
   const [gitName, setGitName] = useState('');
   const [error, setError] = useState<string>('');
   const [picking, setPicking] = useState(false);
+  const [history, setHistory] = useState<ClaudeHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [resumeId, setResumeId] = useState<string>('');
 
   const suggested = suggestNameFromPath(path);
   const effectiveName = name.trim() || suggested;
@@ -95,6 +103,42 @@ export function NewSessionPanel({
     }
   };
 
+  // Fetch past Claude sessions whenever the working folder changes. The picker
+  // (rendered further down) lets the user resume one instead of starting fresh.
+  useEffect(() => {
+    if (!path) {
+      setHistory([]);
+      setResumeId('');
+      return;
+    }
+    let cancelled = false;
+    const fetcher = window.api?.claudeHistory?.list;
+    if (!fetcher) {
+      setHistory([]);
+      setResumeId('');
+      return;
+    }
+    setHistoryLoading(true);
+    setResumeId('');
+    fetcher(path)
+      .then((entries) => {
+        if (!cancelled) setHistory(entries);
+      })
+      .catch(() => {
+        if (!cancelled) setHistory([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  const resumeEntry = resumeId
+    ? history.find((h) => h.sessionId === resumeId) ?? null
+    : null;
+
   const submit = () => {
     if (!canCreate) return;
     onCreate({
@@ -104,6 +148,7 @@ export function NewSessionPanel({
       model,
       systemPrompt: systemPrompt.trim(),
       git: { mode: gitMode, ...(needsGitName ? { name: trimmedGitName } : {}) },
+      ...(resumeId ? { resumeSdkSessionId: resumeId } : {}),
     });
   };
 
@@ -176,6 +221,53 @@ export function NewSessionPanel({
               </div>
             )}
           </div>
+
+          {path && (
+            <div className="ns-field ns-resume">
+              <label className="ns-label">
+                Resume past session
+                {history.length > 0 && (
+                  <span className="ns-resume-count"> · {history.length}</span>
+                )}
+              </label>
+              {historyLoading ? (
+                <div className="ns-hint">Looking for past Claude sessions…</div>
+              ) : history.length === 0 ? (
+                <div className="ns-hint">
+                  No past Claude Code sessions for this folder.
+                </div>
+              ) : (
+                <ul className="ns-resume-list" role="listbox" aria-label="Past Claude sessions">
+                  {history.slice(0, 8).map((entry) => {
+                    const selected = entry.sessionId === resumeId;
+                    return (
+                      <li key={entry.sessionId}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className={'ns-resume-item' + (selected ? ' on' : '')}
+                          onClick={() =>
+                            setResumeId(selected ? '' : entry.sessionId)
+                          }
+                        >
+                          <span className="ns-resume-preview">{entry.preview || '(no text)'}</span>
+                          <span className="ns-resume-meta">
+                            {new Date(entry.modifiedAt).toLocaleDateString()} · {entry.userTurnCount} turn{entry.userTurnCount === 1 ? '' : 's'}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {resumeEntry && (
+                <div className="ns-hint">
+                  New session will resume this conversation on its first message.
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="ns-field">
             <label className="ns-label">Branch strategy</label>
@@ -254,7 +346,7 @@ export function NewSessionPanel({
             disabled={!canCreate}
             onClick={submit}
           >
-            Create session
+            {resumeId ? 'Resume session' : 'Create session'}
           </button>
         </div>
       </aside>
