@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
-import type { MenuItemConstructorOptions } from 'electron';
+import type { MenuItemConstructorOptions, OpenDialogOptions } from 'electron';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -370,7 +370,7 @@ function registerIpc(): void {
   });
   ipcMain.handle('fs:pick-files', async (e, defaultPath?: string) => {
     const win = BrowserWindow.fromWebContents(e.sender);
-    const opts: Electron.OpenDialogOptions = {
+    const opts: OpenDialogOptions = {
       properties: ['openFile', 'multiSelections'],
       ...(defaultPath ? { defaultPath } : {}),
     };
