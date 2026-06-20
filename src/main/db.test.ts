@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Session, Turn } from '@shared/types';
+import type { Turn } from '@shared/types';
 import { openSessionsDb, type SessionsDb } from './db';
 
 function turn(
@@ -17,23 +17,6 @@ function turn(
   };
   if (modelShort) t.modelShort = modelShort;
   return t;
-}
-
-function seedSession(id = 'sess-1', name = 'demo'): Session {
-  return {
-    id,
-    name,
-    path: '~/dev/demo',
-    model: 'claude-sonnet-4-6',
-    systemPrompt: '',
-    branch: 'main',
-    createdAt: 1_000_000,
-    lastActiveAt: 1_000_000,
-    tokens: 0,
-    usage: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
-    sdkSessionId: '',
-    turns: [],
-  };
 }
 
 describe('SessionsDb', () => {

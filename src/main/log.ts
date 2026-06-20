@@ -17,17 +17,33 @@
  * on write, and keep going — failing to log must not break the app.
  */
 
-import { app } from 'electron';
 import { createWriteStream, mkdirSync, type WriteStream } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
+
+const requireFromHere = createRequire(import.meta.url);
 
 let stream: WriteStream | null = null;
 let streamPath = '';
 
+// Lazy because some tests transitively import this module (via chat.ts) but
+// run with `npm ci --ignore-scripts`, which skips electron's postinstall and
+// leaves require('electron') throwing. Loading it inside ensureStream lets
+// the test environment fall back to stderr-only without crashing.
+function getLogsDir(): string | null {
+  try {
+    const electron = requireFromHere('electron') as typeof import('electron');
+    return electron.app.getPath('logs');
+  } catch {
+    return null;
+  }
+}
+
 function ensureStream(): { stream: WriteStream; path: string } | null {
   if (stream && streamPath) return { stream, path: streamPath };
   try {
-    const dir = app.getPath('logs');
+    const dir = getLogsDir();
+    if (!dir) return null;
     mkdirSync(dir, { recursive: true });
     streamPath = join(dir, 'main.log');
     stream = createWriteStream(streamPath, { flags: 'a' });
