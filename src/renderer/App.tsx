@@ -211,6 +211,28 @@ export function App() {
     const offShortcuts = window.api.app.onRequestToggleShortcuts(() => {
       setShowShortcuts((prev) => !prev);
     });
+    // Sidebar view jumps. Pressing the shortcut always opens the sidebar
+    // (if collapsed) and switches the view — never closes it. ⌘B is the
+    // dedicated toggle for that.
+    const jumpToSidebarView = (
+      view: 'sessions' | 'history' | 'analytics' | 'plugins',
+    ): void => {
+      const state = useSessions.getState();
+      if (!state.sideOpen) state.toggleSide();
+      state.setSidebarView(view);
+    };
+    const offShowSessions = window.api.app.onRequestSidebarSessions(() =>
+      jumpToSidebarView('sessions'),
+    );
+    const offShowHistory = window.api.app.onRequestSidebarHistory(() =>
+      jumpToSidebarView('history'),
+    );
+    const offShowAnalytics = window.api.app.onRequestSidebarAnalytics(() =>
+      jumpToSidebarView('analytics'),
+    );
+    const offShowPlugins = window.api.app.onRequestSidebarPlugins(() =>
+      jumpToSidebarView('plugins'),
+    );
     return () => {
       offClose();
       offNew();
@@ -222,6 +244,10 @@ export function App() {
       offNextTab();
       offPrevTab();
       offShortcuts();
+      offShowSessions();
+      offShowHistory();
+      offShowAnalytics();
+      offShowPlugins();
     };
   }, []);
 

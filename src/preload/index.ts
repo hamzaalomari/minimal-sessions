@@ -76,6 +76,30 @@ const api: Api = {
       ipcRenderer.on('app:request-prev-tab', listener);
       return () => ipcRenderer.removeListener('app:request-prev-tab', listener);
     },
+    onRequestSidebarSessions: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-sidebar-sessions', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-sidebar-sessions', listener);
+    },
+    onRequestSidebarHistory: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-sidebar-history', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-sidebar-history', listener);
+    },
+    onRequestSidebarAnalytics: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-sidebar-analytics', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-sidebar-analytics', listener);
+    },
+    onRequestSidebarPlugins: (handler) => {
+      const listener = (): void => handler();
+      ipcRenderer.on('app:request-sidebar-plugins', listener);
+      return () =>
+        ipcRenderer.removeListener('app:request-sidebar-plugins', listener);
+    },
   },
   fs: {
     pickDirectory: () => ipcRenderer.invoke('fs:pick-directory'),

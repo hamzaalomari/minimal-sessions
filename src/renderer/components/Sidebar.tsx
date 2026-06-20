@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Session } from '@shared/types';
@@ -61,9 +62,33 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
   };
 
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const sessionsListRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (sidebarView === 'search') searchRef.current?.focus();
+    if (sidebarView === 'sessions') sessionsListRef.current?.focus();
   }, [sidebarView]);
+
+  // Arrow-key navigation through the Sessions list. ↑/↓ moves the active
+  // session (and opens its tab if not already open); Home/End jump to ends.
+  // Bound to the list itself so typing in the composer or search box is never
+  // hijacked.
+  const onSessionsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (sessions.length === 0) return;
+    const isDown = e.key === 'ArrowDown';
+    const isUp = e.key === 'ArrowUp';
+    const isHome = e.key === 'Home';
+    const isEnd = e.key === 'End';
+    if (!isDown && !isUp && !isHome && !isEnd) return;
+    e.preventDefault();
+    const idx = activeId ? sessions.findIndex((s) => s.id === activeId) : -1;
+    let next: number;
+    if (isHome) next = 0;
+    else if (isEnd) next = sessions.length - 1;
+    else if (isDown) next = idx < 0 ? 0 : (idx + 1) % sessions.length;
+    else next = idx < 0 ? sessions.length - 1 : (idx - 1 + sessions.length) % sessions.length;
+    const target = sessions[next];
+    if (target) selectSession(target.id);
+  };
 
   if (sidebarView === 'search') {
     const hasQuery = searchQuery.trim().length > 0;
@@ -327,7 +352,14 @@ export function Sidebar({ onOpenMenu }: SidebarProps) {
           New session
         </button>
       </div>
-      <div className="session-list scroll" role="list">
+      <div
+        ref={sessionsListRef}
+        className="session-list scroll"
+        role="list"
+        tabIndex={0}
+        aria-label="Sessions list"
+        onKeyDown={onSessionsKeyDown}
+      >
         {sessions.map((s: Session) => (
           <SessionItem
             key={s.id}

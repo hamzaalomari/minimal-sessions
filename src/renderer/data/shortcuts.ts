@@ -50,6 +50,16 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: 'Sidebar views',
+    entries: [
+      { label: 'Show Sessions', combo: '⇧⌘S' },
+      { label: 'Show History', combo: '⇧⌘Y' },
+      { label: 'Show Analytics', combo: '⇧⌘L' },
+      { label: 'Show Plugins', combo: '⇧⌘P' },
+      { label: 'Navigate sessions list', combo: '↑ / ↓' },
+    ],
+  },
+  {
     title: 'Composer',
     entries: [
       { label: 'Send message', combo: 'Enter' },
