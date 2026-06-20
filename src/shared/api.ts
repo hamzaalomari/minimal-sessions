@@ -170,6 +170,15 @@ export interface Api {
     /** Ctrl+Shift+Tab / CmdOrCtrl+PageUp / CmdOrCtrl+Shift+[ — cycle
      *  backward through open tabs, wrapping at the start. */
     onRequestPrevTab(handler: () => void): Unsubscribe;
+    /** Shift+CmdOrCtrl+S — jump the sidebar to the Sessions view (and open
+     *  it if collapsed). */
+    onRequestSidebarSessions(handler: () => void): Unsubscribe;
+    /** Shift+CmdOrCtrl+Y — jump the sidebar to the History view. */
+    onRequestSidebarHistory(handler: () => void): Unsubscribe;
+    /** Shift+CmdOrCtrl+L — jump the sidebar to the Analytics view. */
+    onRequestSidebarAnalytics(handler: () => void): Unsubscribe;
+    /** Shift+CmdOrCtrl+P — jump the sidebar to the Plugins view. */
+    onRequestSidebarPlugins(handler: () => void): Unsubscribe;
   };
   fs: {
     /** Native OS folder picker. Resolves to the picked absolute path, or null if cancelled. */

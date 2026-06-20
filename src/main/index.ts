@@ -161,6 +161,29 @@ function buildMenu(): Menu {
     accelerator: 'CmdOrCtrl+/',
     click: sendToFocused('app:request-toggle-shortcuts'),
   };
+  // Sidebar view jumps. Each opens the sidebar if collapsed, then switches
+  // to the requested view. ⇧⌘ + mnemonic letter chosen to avoid existing
+  // ⌘+letter bindings, macOS-reserved shortcuts, and Electron defaults.
+  const showSessionsItem: MenuItemConstructorOptions = {
+    label: 'Show Sessions',
+    accelerator: 'Shift+CmdOrCtrl+S',
+    click: sendToFocused('app:request-sidebar-sessions'),
+  };
+  const showHistoryItem: MenuItemConstructorOptions = {
+    label: 'Show History',
+    accelerator: 'Shift+CmdOrCtrl+Y',
+    click: sendToFocused('app:request-sidebar-history'),
+  };
+  const showAnalyticsItem: MenuItemConstructorOptions = {
+    label: 'Show Analytics',
+    accelerator: 'Shift+CmdOrCtrl+L',
+    click: sendToFocused('app:request-sidebar-analytics'),
+  };
+  const showPluginsItem: MenuItemConstructorOptions = {
+    label: 'Show Plugins',
+    accelerator: 'Shift+CmdOrCtrl+P',
+    click: sendToFocused('app:request-sidebar-plugins'),
+  };
   // Browser-style navigation through session/sidebar history. Mouse buttons
   // 4/5 also dispatch these via the app-command handler in createWindow().
   const navigateBackItem: MenuItemConstructorOptions = {
@@ -288,6 +311,11 @@ function buildMenu(): Menu {
       submenu: [
         toggleSidebarItem,
         toggleTerminalItem,
+        { type: 'separator' },
+        showSessionsItem,
+        showHistoryItem,
+        showAnalyticsItem,
+        showPluginsItem,
         { type: 'separator' },
         navigateBackItem,
         navigateForwardItem,

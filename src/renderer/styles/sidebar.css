@@ -461,6 +461,11 @@ body.is-resizing-side .side-resize {
   padding: 4px 8px 14px;
 }
 
+.session-list:focus,
+.session-list:focus-visible {
+  outline: none;
+}
+
 .session-item {
   position: relative;
   padding: 9px 10px 10px 11px;
