@@ -116,6 +116,8 @@ const api: Api = {
   },
   claudeHistory: {
     list: (cwd) => ipcRenderer.invoke('claude-history:list', cwd),
+    load: (cwd, sessionId) =>
+      ipcRenderer.invoke('claude-history:load', cwd, sessionId),
   },
   sessions: {
     list: () => ipcRenderer.invoke('sessions:list'),

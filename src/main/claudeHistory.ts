@@ -1,6 +1,9 @@
 import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import type { Block, Turn } from '@shared/types';
+import { parseMarkdown } from '@shared/markdown';
+import { pathForTool, summaryFor, toolKindFor } from '@shared/tool-display';
 
 /**
  * Read past Claude Code session history for a given working folder.
@@ -126,4 +129,228 @@ export async function listClaudeSessions(cwd: string): Promise<ClaudeHistoryEntr
   }
   entries.sort((a, b) => b.modifiedAt - a.modifiedAt);
   return entries;
+}
+
+/**
+ * Reconstruct user/assistant turns from a past session's JSONL so the
+ * "Resume past session" flow can pre-populate the transcript before any new
+ * messages are sent. Parses text, thinking, tool_use, and tool_result content
+ * — mirrors the same Block shapes that `chat.ts` builds during live streaming.
+ */
+
+interface JsonlPart {
+  type: string;
+  text?: string;
+  thinking?: string;
+  id?: string;
+  name?: string;
+  input?: unknown;
+  tool_use_id?: string;
+  content?: unknown;
+  is_error?: boolean;
+}
+
+interface JsonlRecord {
+  type?: string;
+  uuid?: string;
+  timestamp?: string;
+  message?: {
+    role?: string;
+    model?: string;
+    content?: JsonlPart[] | string;
+  };
+}
+
+function applyAssistantContent(
+  content: JsonlPart[],
+  blocks: Block[],
+  toolWinIndex: Map<string, number>,
+): void {
+  for (const part of content) {
+    if (part.type === 'text' && typeof part.text === 'string' && part.text) {
+      for (const b of parseMarkdown(part.text)) blocks.push(b);
+      continue;
+    }
+    if (part.type === 'thinking') {
+      const text = part.thinking ?? part.text ?? '';
+      if (text) blocks.push({ type: 'thinking', text });
+      continue;
+    }
+    if (part.type === 'tool_use' && part.id && part.name) {
+      const kind = toolKindFor(part.name);
+      const path = pathForTool(part.name, part.input);
+      const last = blocks[blocks.length - 1];
+      if (kind !== 'bash' && last && last.type === 'win' && last.kind === kind) {
+        const lastIdx = blocks.length - 1;
+        const existingPaths = last.paths ?? [last.path];
+        blocks[lastIdx] = { ...last, paths: [...existingPaths, path] };
+        toolWinIndex.set(part.id, lastIdx);
+      } else {
+        const idx = blocks.length;
+        blocks.push({
+          type: 'win',
+          kind,
+          path,
+          summary: summaryFor(part.name, part.input),
+        });
+        toolWinIndex.set(part.id, idx);
+      }
+    }
+  }
+}
+
+function applyToolResultsContent(
+  content: JsonlPart[],
+  blocks: Block[],
+  toolWinIndex: Map<string, number>,
+): void {
+  for (const part of content) {
+    if (part.type !== 'tool_result' || !part.tool_use_id) continue;
+    const idx = toolWinIndex.get(part.tool_use_id);
+    if (idx === undefined) continue;
+    const win = blocks[idx];
+    if (!win || win.type !== 'win') continue;
+    const text = stringifyToolResult(part.content);
+    const isMulti = (win.paths?.length ?? 0) > 1;
+    if (isMulti) {
+      blocks[idx] = { ...win, tag: part.is_error ? 'error' : win.tag ?? 'ok' };
+    } else {
+      blocks[idx] = {
+        ...win,
+        lang: 'text',
+        code: text,
+        tag: part.is_error ? 'error' : 'ok',
+      };
+    }
+  }
+}
+
+function stringifyToolResult(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((c) =>
+        typeof c === 'string'
+          ? c
+          : (c as { text?: string })?.text ?? JSON.stringify(c),
+      )
+      .join('\n');
+  }
+  if (content == null) return '';
+  return JSON.stringify(content);
+}
+
+function modelShortFor(id: string | undefined): string | undefined {
+  if (!id) return undefined;
+  if (id.includes('opus')) return 'Opus';
+  if (id.includes('sonnet')) return 'Sonnet';
+  if (id.includes('haiku')) return 'Haiku';
+  return undefined;
+}
+
+export async function loadClaudeSession(
+  cwd: string,
+  sessionId: string,
+): Promise<Turn[]> {
+  if (!cwd || !sessionId) return [];
+  const filePath = join(
+    homedir(),
+    '.claude',
+    'projects',
+    encodeCwd(cwd),
+    `${sessionId}.jsonl`,
+  );
+  let raw: string;
+  try {
+    raw = await fs.readFile(filePath, 'utf8');
+  } catch {
+    return [];
+  }
+
+  const turns: Turn[] = [];
+  let assistantBlocks: Block[] | null = null;
+  let assistantTurnId: string | null = null;
+  let assistantCreatedAt = 0;
+  let assistantModelShort: string | undefined;
+  const toolWinIndex = new Map<string, number>();
+
+  const flushAssistant = (): void => {
+    if (
+      assistantBlocks &&
+      assistantBlocks.length > 0 &&
+      assistantTurnId
+    ) {
+      turns.push({
+        id: assistantTurnId,
+        role: 'assistant',
+        blocks: assistantBlocks,
+        createdAt: assistantCreatedAt,
+        ...(assistantModelShort ? { modelShort: assistantModelShort } : {}),
+      });
+    }
+    assistantBlocks = null;
+    assistantTurnId = null;
+    assistantCreatedAt = 0;
+    assistantModelShort = undefined;
+    toolWinIndex.clear();
+  };
+
+  for (const line of raw.split('\n')) {
+    if (!line) continue;
+    let rec: JsonlRecord;
+    try {
+      rec = JSON.parse(line) as JsonlRecord;
+    } catch {
+      continue;
+    }
+    const ts = rec.timestamp ? Date.parse(rec.timestamp) : 0;
+
+    if (rec.type === 'user') {
+      const content = rec.message?.content;
+      const parts: JsonlPart[] =
+        typeof content === 'string'
+          ? [{ type: 'text', text: content }]
+          : Array.isArray(content)
+            ? content
+            : [];
+
+      // Tool results attach to the still-open assistant turn (they're the
+      // "user" side of a tool round-trip, not a real user message).
+      if (assistantBlocks && parts.some((p) => p.type === 'tool_result')) {
+        applyToolResultsContent(parts, assistantBlocks, toolWinIndex);
+      }
+
+      const textPart = parts.find(
+        (p): p is JsonlPart & { text: string } =>
+          p.type === 'text' && typeof p.text === 'string' && p.text.trim() !== '',
+      );
+      if (textPart) {
+        // A real user message ends the previous assistant turn.
+        flushAssistant();
+        turns.push({
+          id: rec.uuid ?? `u-${turns.length}`,
+          role: 'user',
+          blocks: parseMarkdown(textPart.text),
+          createdAt: ts || Date.now(),
+        });
+      }
+      continue;
+    }
+
+    if (rec.type === 'assistant') {
+      const content = rec.message?.content;
+      if (!Array.isArray(content)) continue;
+      if (!assistantBlocks) {
+        assistantBlocks = [];
+        assistantTurnId = rec.uuid ?? `a-${turns.length}`;
+        assistantCreatedAt = ts || Date.now();
+        assistantModelShort = modelShortFor(rec.message?.model);
+      }
+      applyAssistantContent(content, assistantBlocks, toolWinIndex);
+      continue;
+    }
+  }
+  flushAssistant();
+
+  return turns;
 }

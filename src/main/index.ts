@@ -8,7 +8,7 @@ import type { CreateSessionInput, Platform } from '@shared/api';
 import type { SessionId, TokenUsage, Turn } from '@shared/types';
 import { openSessionsDb, type SessionsDb } from './db';
 import { branchFor, dirExists, gitInitSession, type GitInitSessionInput } from './fs';
-import { listClaudeSessions } from './claudeHistory';
+import { listClaudeSessions, loadClaudeSession } from './claudeHistory';
 import { log, logPath } from './log';
 import { discoverCommands, discoverSkills, setBuiltinCommandsDir } from './plugins';
 import {
@@ -475,6 +475,10 @@ function registerIpc(): void {
   });
   ipcMain.handle('claude-history:list', (_e, cwd: string) =>
     listClaudeSessions(cwd),
+  );
+  ipcMain.handle(
+    'claude-history:load',
+    (_e, cwd: string, sessionId: string) => loadClaudeSession(cwd, sessionId),
   );
   ipcMain.handle('sessions:rename', (_e, id: SessionId, name: string) =>
     getDb().renameSession(id, name),

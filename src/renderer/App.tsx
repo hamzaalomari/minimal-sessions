@@ -310,7 +310,7 @@ export function App() {
         return;
       }
     }
-    createSession({
+    const session = createSession({
       name: draft.name,
       path,
       model: draft.model,
@@ -320,6 +320,30 @@ export function App() {
         ? { sdkSessionId: draft.resumeSdkSessionId }
         : {}),
     });
+    // When resuming a past session, pull the recorded user/assistant turns
+    // from `~/.claude/projects/<encoded>/<id>.jsonl` and replay them into the
+    // new session so the transcript opens with the full conversation visible
+    // — not a blank panel that magically "continues" on the next send.
+    if (draft.resumeSdkSessionId) {
+      void replayHistoricalTurns(path, draft.resumeSdkSessionId, session.id);
+    }
+  };
+
+  const replayHistoricalTurns = async (
+    cwd: string,
+    sdkSessionId: string,
+    sessionId: string,
+  ): Promise<void> => {
+    const loader = window.api?.claudeHistory?.load;
+    if (!loader) return;
+    let turns: Awaited<ReturnType<typeof loader>> = [];
+    try {
+      turns = await loader(cwd, sdkSessionId);
+    } catch {
+      return;
+    }
+    const append = useSessions.getState().appendTurn;
+    for (const turn of turns) append(sessionId, turn, 0);
   };
 
   /** Mouse-driven sidebar resize. Updates the --side-width CSS variable on
