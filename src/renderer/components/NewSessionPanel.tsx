@@ -138,6 +138,16 @@ export function NewSessionPanel({
   const resumeEntry = resumeId
     ? history.find((h) => h.sessionId === resumeId) ?? null
     : null;
+  const isResuming = Boolean(resumeEntry);
+
+  // Picking a session to resume forces "Use current" — running a branch /
+  // worktree side-effect against an existing conversation makes no sense.
+  useEffect(() => {
+    if (isResuming && gitMode !== 'none') {
+      setGitMode('none');
+      setGitName('');
+    }
+  }, [isResuming, gitMode]);
 
   const submit = () => {
     if (!canCreate) return;
@@ -269,6 +279,7 @@ export function NewSessionPanel({
             </div>
           )}
 
+          {!isResuming && (
           <div className="ns-field">
             <label className="ns-label">Branch strategy</label>
             <div
@@ -326,11 +337,14 @@ export function NewSessionPanel({
               </>
             )}
           </div>
+          )}
 
+          {!isResuming && (
           <div className="ns-field">
             <label className="ns-label">Model</label>
             <ModelPicker value={model} onChange={setModel} />
           </div>
+          )}
 
           <SystemPromptField value={systemPrompt} onChange={setSystemPrompt} />
         </div>

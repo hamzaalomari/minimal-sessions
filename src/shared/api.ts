@@ -229,6 +229,10 @@ export interface Api {
      *  sorted most-recently-active first. Internal model-probe sessions are
      *  filtered out. */
     list(cwd: string): Promise<ClaudeHistoryEntry[]>;
+    /** Reconstruct the full user/assistant turn list for a past session so the
+     *  resumed session opens with the conversation already visible. Returns
+     *  `[]` if the JSONL is missing or unparseable. */
+    load(cwd: string, sessionId: string): Promise<Turn[]>;
   };
   sessions: {
     /** Active (non-deleted) sessions with their turns embedded, ordered by most-recently-active. */
